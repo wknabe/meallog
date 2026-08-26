@@ -14,6 +14,7 @@ import {
 } from '@/db/repo/settings';
 import { clearPhotoPaths } from '@/db/repo/meals';
 import { getLatestWeight } from '@/db/repo/weights';
+import { runAutoBackup } from '@/lib/backup';
 import { purgeExpiredPhotos } from '@/lib/photos';
 import type { Profile, Settings } from '@/lib/types';
 
@@ -72,6 +73,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       } catch (error) {
         console.warn('期限切れ画像の削除に失敗しました', error);
       }
+
+      // 週1回、端末内に記録データを書き出しておく（アプリ側の不具合からの復旧用）。
+      // 起動を待たせないよう、結果は待たずに進める
+      void runAutoBackup(settings.lastAutoBackupAt)
+        .then(async (uri) => {
+          if (uri == null) return;
+          const next = { ...settings, lastAutoBackupAt: new Date().toISOString() };
+          await saveSettings(next);
+          set({ settings: next });
+        })
+        .catch((error) => console.warn('自動バックアップに失敗しました', error));
     } catch (error) {
       console.error('起動処理に失敗しました', error);
       set({

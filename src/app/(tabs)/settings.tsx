@@ -1,3 +1,4 @@
+import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
@@ -17,8 +18,9 @@ import { resetDatabase } from '@/db';
 import { countFoods } from '@/db/repo/foods';
 import { listDailyTotals } from '@/db/repo/meals';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
+import { exportBackup, importBackup, shareBackup } from '@/lib/backup';
 import { formatBytes, photoStorageBytes } from '@/lib/photos';
-import { addDays, calcAge, today } from '@/lib/day';
+import { addDays, calcAge, formatDayLabel, today } from '@/lib/day';
 import { computeAdjustment, describeAdjustment } from '@/lib/adjustment';
 import { ACTIVITY_LEVELS, calcTargets } from '@/lib/targets';
 import type { ActivityLevel, AdjustmentDistribution, BurnSource, Gender, Profile } from '@/lib/types';
@@ -40,6 +42,7 @@ export default function SettingsScreen() {
   const [foodCount, setFoodCount] = useState<number | null>(null);
   const [photoBytes, setPhotoBytes] = useState<number | null>(null);
   const [adjustmentNote, setAdjustmentNote] = useState<string | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
     countFoods().then(setFoodCount).catch(() => setFoodCount(null));
@@ -89,6 +92,11 @@ export default function SettingsScreen() {
 
   if (!profile) return null;
 
+  // 1ヶ月以上書き出していなければ促す
+  const backupOverdue =
+    settings.lastBackupAt == null ||
+    Date.now() - new Date(settings.lastBackupAt).getTime() > 30 * 24 * 60 * 60 * 1000;
+
   /**
    * プロフィールを更新する。
    * 目標値を手で書き換えていない場合だけ、目標カロリー・PFCを計算し直す。
@@ -133,6 +141,67 @@ export default function SettingsScreen() {
       targetCarbG: result.carbG,
       targetsOverridden: false,
     });
+  }
+
+  /** 書き出して共有シートに渡す */
+  async function runExport(includePhotos: boolean) {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    try {
+      const uri = await exportBackup(includePhotos);
+      await updateSettings({ lastBackupAt: new Date().toISOString() });
+      await shareBackup(uri);
+    } catch (error) {
+      console.error('バックアップの書き出しに失敗しました', error);
+      Alert.alert(
+        '書き出せませんでした',
+        error instanceof Error ? error.message : 'もう一度お試しください。'
+      );
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  /** ファイルを選んで復元する。現在のデータは置き換わる */
+  async function runImport() {
+    if (backupBusy) return;
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ['application/json', 'application/zip', '*/*'],
+      copyToCacheDirectory: true,
+    });
+    if (picked.canceled || !picked.assets?.[0]) return;
+    const uri = picked.assets[0].uri;
+
+    Alert.alert(
+      '復元すると今のデータは消えます',
+      '食事・体重・運動・設定を含め、すべてバックアップの内容に置き換わります。続けますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '復元する',
+          style: 'destructive',
+          onPress: async () => {
+            setBackupBusy(true);
+            try {
+              const result = await importBackup(uri);
+              await useAppStore.getState().bootstrap();
+              Alert.alert(
+                '復元しました',
+                `${result.restored}件のデータ${result.photos > 0 ? `と${result.photos}枚の写真` : ''}を戻しました。`
+              );
+            } catch (error) {
+              console.error('バックアップの復元に失敗しました', error);
+              Alert.alert(
+                '復元できませんでした',
+                error instanceof Error ? error.message : 'ファイルを確認してください。'
+              );
+            } finally {
+              setBackupBusy(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   function confirmReset() {
@@ -455,6 +524,49 @@ export default function SettingsScreen() {
         />
       </Card>
 
+      {/* ── バックアップ ── */}
+      <Card>
+        <CardTitle>バックアップ</CardTitle>
+        <Text style={styles.description}>
+          データは端末の中だけに保存されています。機種変更やアプリの削除に備えて、
+          ときどき書き出してクラウドやメールに保存してください。
+        </Text>
+
+        <Row
+          label="最後に書き出した日"
+          value={
+            settings.lastBackupAt != null
+              ? formatDayLabel(settings.lastBackupAt.slice(0, 10))
+              : 'まだありません'
+          }
+        />
+        {backupOverdue && (
+          <View style={styles.warningBox}>
+            <Text style={styles.warningText}>
+              前回の書き出しから1ヶ月以上経っています。念のため書き出しておくことをおすすめします。
+            </Text>
+          </View>
+        )}
+
+        <Button
+          title={backupBusy ? '処理中…' : '書き出す（記録データのみ）'}
+          onPress={() => void runExport(false)}
+          disabled={backupBusy}
+        />
+        <Button
+          title="書き出す（写真も含む）"
+          variant="secondary"
+          onPress={() => void runExport(true)}
+          disabled={backupBusy}
+        />
+        <Button
+          title="バックアップから復元"
+          variant="ghost"
+          onPress={() => void runImport()}
+          disabled={backupBusy}
+        />
+      </Card>
+
       {/* ── データ ── */}
       <Card>
         <CardTitle>食品データ</CardTitle>
@@ -474,6 +586,8 @@ const styles = StyleSheet.create({
   description: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
   preview: { backgroundColor: colors.primaryLight, borderRadius: 10, padding: spacing.md },
   previewText: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '600' },
+  warningBox: { backgroundColor: '#FDF0E6', borderRadius: 10, padding: spacing.md },
+  warningText: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
   source: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 16 },
   macroRow: { flexDirection: 'row', gap: spacing.sm },
   macroItem: { flex: 1 },
