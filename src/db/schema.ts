@@ -313,9 +313,20 @@ CREATE INDEX idx_shopping_items_list ON shopping_items(list_id);
 `;
 
 /**
+ * 同梱データの投入状況などを覚えておくための小さなキー値テーブル。
+ * 料理データはあとから品数を増やすため、どこまで投入したかを版数で持つ。
+ */
+const V2 = `
+CREATE TABLE app_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`;
+
+/**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1];
+export const MIGRATIONS: string[] = [V1, V2];
 
 export const LATEST_VERSION = MIGRATIONS.length;

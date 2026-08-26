@@ -1,0 +1,41 @@
+{
+  "_comment": "その他（果物・乳製品・間食・飲み物）。n=名前 cu=ジャンル ef=手間 vo=ボリューム ta=味の方向 sv=何人前 cm=調理時間(分) ig=材料[食品番号, グラム, 's'なら調味料]",
+  "category": "other",
+  "dishes": [
+    {"n":"バナナ1本","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":1,"ig":[["07107",100]]},
+    {"n":"りんご半分","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":3,"ig":[["07148",130]]},
+    {"n":"みかん2個","cu":"japanese","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":2,"ig":[["07027",160]]},
+    {"n":"いちご10粒","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":3,"ig":[["07012",150]]},
+    {"n":"キウイ1個","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":2,"ig":[["07054",85]]},
+    {"n":"オレンジ1個","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":3,"ig":[["07040",130]]},
+    {"n":"ブルーベリー","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":1,"ig":[["07124",80]]},
+    {"n":"アボカド半分","cu":"western","ef":"nocook","vo":"light","ta":["rich"],"sv":1,"cm":3,"ig":[["07006",70]]},
+
+    {"n":"プレーンヨーグルト","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":1,"ig":[["13025",100]]},
+    {"n":"ヨーグルトとバナナ","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":3,"ig":[["13025",100],["07107",100]]},
+    {"n":"ヨーグルトとブルーベリー","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":2,"ig":[["13025",100],["07124",50]]},
+    {"n":"ヨーグルトとはちみつ","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":2,"ig":[["13025",100],["03022",15,"s"]]},
+    {"n":"フルーツヨーグルト","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":5,"ig":[["13025",100],["07148",60],["07107",50]]},
+    {"n":"飲むヨーグルト","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":1,"ig":[["13027",180]]},
+
+    {"n":"牛乳コップ1杯","cu":"western","ef":"nocook","vo":"light","ta":[],"sv":1,"cm":1,"ig":[["13003",200]]},
+    {"n":"ホットミルク","cu":"western","ef":"heatonly","vo":"light","ta":["warm"],"sv":1,"cm":3,"ig":[["13003",200]]},
+    {"n":"豆乳コップ1杯","cu":"japanese","ef":"nocook","vo":"light","ta":[],"sv":1,"cm":1,"ig":[["04052",200]]},
+    {"n":"きな粉豆乳","cu":"japanese","ef":"nocook","vo":"light","ta":[],"sv":1,"cm":3,"ig":[["04052",200],["04082",8]]},
+    {"n":"いちごミルク","cu":"western","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":5,"ig":[["07012",100],["13003",150],["03003",5,"s"]]},
+    {"n":"バナナと豆乳のスムージー","cu":"western","ef":"easy","vo":"light","ta":["light"],"sv":1,"cm":5,"ig":[["07107",100],["04052",150]]},
+    {"n":"緑茶","cu":"japanese","ef":"nocook","vo":"light","ta":["warm"],"sv":1,"cm":2,"ig":[["16037",200]]},
+
+    {"n":"プロセスチーズ2枚","cu":"western","ef":"nocook","vo":"light","ta":["rich"],"sv":1,"cm":1,"ig":[["13040",36]]},
+    {"n":"チーズとりんご","cu":"western","ef":"nocook","vo":"light","ta":["rich"],"sv":1,"cm":3,"ig":[["13040",20],["07148",100]]},
+    {"n":"ゆで卵1個","cu":"japanese","ef":"heatonly","vo":"light","ta":[],"sv":1,"cm":12,"ig":[["12004",50]]},
+    {"n":"アーモンド20粒","cu":"western","ef":"nocook","vo":"light","ta":["rich"],"sv":1,"cm":1,"ig":[["05040",25]]},
+    {"n":"くるみひとつかみ","cu":"western","ef":"nocook","vo":"light","ta":["rich"],"sv":1,"cm":1,"ig":[["05014",20]]},
+
+    {"n":"焼きいも","cu":"japanese","ef":"heatonly","vo":"normal","ta":["warm"],"sv":1,"cm":40,"ig":[["02045",150]]},
+    {"n":"かぼちゃの甘煮","cu":"japanese","ef":"easy","vo":"light","ta":["warm"],"sv":1,"cm":20,"ig":[["06048",100],["03003",8,"s"]]},
+    {"n":"はちみつトースト","cu":"western","ef":"heatonly","vo":"normal","ta":["warm"],"sv":1,"cm":5,"ig":[["01026",60],["03022",15,"s"]]},
+    {"n":"納豆（間食）","cu":"japanese","ef":"nocook","vo":"light","ta":[],"sv":1,"cm":1,"ig":[["04046",45]]},
+    {"n":"豆腐（間食）","cu":"japanese","ef":"nocook","vo":"light","ta":["light"],"sv":1,"cm":1,"ig":[["04033",150]]}
+  ]
+}

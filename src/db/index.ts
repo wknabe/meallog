@@ -5,6 +5,7 @@
 import * as SQLite from 'expo-sqlite';
 
 import { LATEST_VERSION, MIGRATIONS } from './schema.ts';
+import { seedPresetDishes } from './seed/dishes.ts';
 import { seedStandardFoods } from './seed/foods.ts';
 
 const DB_NAME = 'meallog.db';
@@ -28,6 +29,9 @@ export function initDatabase(): Promise<SQLite.SQLiteDatabase> {
     // 成分表データは初回起動時にだけ投入される
     const seeded = await seedStandardFoods(db);
     if (seeded > 0) console.log(`成分表データを投入しました: ${seeded}件`);
+    // 料理データは版が上がったときに差分だけ追加される
+    const dishes = await seedPresetDishes(db);
+    if (dishes > 0) console.log(`料理データを投入しました: ${dishes}件`);
     return db;
   })();
   return initPromise;
