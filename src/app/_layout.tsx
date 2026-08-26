@@ -41,6 +41,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="meal" />
           <Stack.Screen name="workout" />
+          <Stack.Screen name="library" />
           <Stack.Screen
             name="weight"
             options={{ ...stackScreenOptions, title: '体重' }}

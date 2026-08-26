@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SegmentedControl } from '@/components/ui/controls';
+import { Button, SegmentedControl } from '@/components/ui/controls';
 import { EmptyState } from '@/components/ui/layout';
 import { dishNutrition, listDishes, type Dish } from '@/db/repo/dishes';
 import { FOOD_GROUPS, searchFoods, type Food } from '@/db/repo/foods';
@@ -82,14 +82,23 @@ export default function FoodSearchScreen() {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             loading ? null : (
-              <EmptyState
-                title={keyword === '' ? 'よく使う食品がここに出ます' : '見つかりませんでした'}
-                description={
-                  keyword === ''
-                    ? '食材名や商品名で検索してください。'
-                    : '別の言い方でも探してみてください。市販品は「マイ食品」に登録すると次から検索できます。'
-                }
-              />
+              <View>
+                <EmptyState
+                  title={keyword === '' ? 'よく使う食品がここに出ます' : '見つかりませんでした'}
+                  description={
+                    keyword === ''
+                      ? '食材名や商品名で検索してください。'
+                      : '別の言い方でも探してみてください。市販品は成分表を登録すると次から検索できます。'
+                  }
+                />
+                {keyword !== '' && (
+                  <Button
+                    title="成分表から商品を登録"
+                    variant="secondary"
+                    onPress={() => router.push('/library/product-edit')}
+                  />
+                )}
+              </View>
             )
           }
           renderItem={({ item }) => (

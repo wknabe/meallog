@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 
@@ -7,6 +8,7 @@ import {
   Field,
   NumberInput,
   OptionList,
+  PressableRow,
   SegmentedControl,
 } from '@/components/ui/controls';
 import { DateField } from '@/components/ui/date-field';
@@ -22,6 +24,7 @@ import { useAppStore } from '@/store/app';
 import { colors, fontSize, spacing } from '@/theme/colors';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const profile = useAppStore((s) => s.profile);
   const settings = useAppStore((s) => s.settings);
   const currentWeightKg = useAppStore((s) => s.currentWeightKg);
@@ -395,6 +398,15 @@ export default function SettingsScreen() {
             onChange={(value) => updateSettings({ labelPhotoRetentionDays: value })}
           />
         </Field>
+      </Card>
+
+      {/* ── 食材・商品・料理 ── */}
+      <Card>
+        <CardTitle>食材・商品・料理</CardTitle>
+        <PressableRow
+          label="マイ食品・料理を管理"
+          onPress={() => router.push('/library')}
+        />
       </Card>
 
       {/* ── データ ── */}

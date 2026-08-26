@@ -206,3 +206,112 @@ export async function countDishes(): Promise<number> {
   const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM dishes;');
   return row?.count ?? 0;
 }
+
+// ── 料理の作成・更新・削除 ──
+
+export type DishIngredientInput = {
+  foodId: number;
+  grams: number;
+  isSeasoning: boolean;
+};
+
+export type DishInput = {
+  name: string;
+  category: DishCategory;
+  cuisine: Cuisine | null;
+  effort: Effort | null;
+  volume: Volume | null;
+  tastes: Taste[];
+  servings: number;
+  cookMinutes: number | null;
+  steps: string | null;
+  ingredients: DishIngredientInput[];
+};
+
+async function writeDishDetails(
+  dishId: number,
+  input: DishInput,
+  db: ReturnType<typeof getDatabase>
+): Promise<void> {
+  // 味タグと材料は差分ではなく毎回入れ替える。並び順の管理が単純になるため
+  await db.runAsync('DELETE FROM dish_tastes WHERE dish_id = ?;', [dishId]);
+  for (const taste of input.tastes) {
+    await db.runAsync('INSERT INTO dish_tastes (dish_id, taste) VALUES (?, ?);', [dishId, taste]);
+  }
+
+  await db.runAsync('DELETE FROM dish_ingredients WHERE dish_id = ?;', [dishId]);
+  for (const [index, ingredient] of input.ingredients.entries()) {
+    await db.runAsync(
+      `INSERT INTO dish_ingredients (dish_id, food_id, grams, is_seasoning, sort_order)
+       VALUES (?, ?, ?, ?, ?);`,
+      [dishId, ingredient.foodId, ingredient.grams, ingredient.isSeasoning ? 1 : 0, index]
+    );
+  }
+}
+
+export async function createDish(input: DishInput): Promise<number> {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  let dishId = 0;
+
+  await db.withTransactionAsync(async () => {
+    const result = await db.runAsync(
+      `INSERT INTO dishes (name, kana, category, cuisine, effort, volume, servings,
+                           cook_minutes, steps, source, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user', ?, ?);`,
+      [
+        input.name,
+        input.name,
+        input.category,
+        input.cuisine,
+        input.effort,
+        input.volume,
+        input.servings,
+        input.cookMinutes,
+        input.steps,
+        now,
+        now,
+      ]
+    );
+    dishId = result.lastInsertRowId;
+    await writeDishDetails(dishId, input, db);
+  });
+
+  return dishId;
+}
+
+export async function updateDish(id: number, input: DishInput): Promise<void> {
+  const db = getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE dishes SET name = ?, kana = ?, category = ?, cuisine = ?, effort = ?, volume = ?,
+                         servings = ?, cook_minutes = ?, steps = ?, updated_at = ?
+       WHERE id = ?;`,
+      [
+        input.name,
+        input.name,
+        input.category,
+        input.cuisine,
+        input.effort,
+        input.volume,
+        input.servings,
+        input.cookMinutes,
+        input.steps,
+        new Date().toISOString(),
+        id,
+      ]
+    );
+    await writeDishDetails(id, input, db);
+  });
+}
+
+export async function deleteDish(id: number): Promise<void> {
+  const db = getDatabase();
+  // 材料と味タグは ON DELETE CASCADE で一緒に消える
+  await db.runAsync('DELETE FROM dishes WHERE id = ?;', [id]);
+}
+
+export async function toggleDishFavorite(id: number, isFavorite: boolean): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync('UPDATE dishes SET is_favorite = ? WHERE id = ?;', [isFavorite ? 1 : 0, id]);
+}
