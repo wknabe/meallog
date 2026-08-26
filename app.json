@@ -47,7 +47,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "react-native-health-connect"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,56 +1,78 @@
-# Welcome to your Expo app 👋
+# Meallog
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+ダイエット・食事管理アプリ。記録して終わりではなく、
+**記録 → 分析 → 献立提案 → 実行 → 記録** のサイクルを回すことを目指しています。
 
-## Get started
+Expo（React Native）製で、データはすべて端末内の SQLite に保存します。
+サーバーは使わず、オフラインで動きます。
 
-1. Install dependencies
+## できること
 
-   ```bash
-   npm install
-   ```
+| 画面 | 内容 |
+|---|---|
+| ホーム | 摂取カロリー・PFC・消費カロリー・体重・「今日あと何を食べればいい？」 |
+| 食事 | 朝昼夕間食の記録（撮影／写真選択／検索／手入力／よく食べる食事）、履歴、栄養の内訳 |
+| 運動 | 手入力の運動記録（METsから消費カロリーを推定）、スマートウォッチとの比較 |
+| 献立 | 気分4軸と直近の栄養バランスからの献立作成、冷蔵庫、1週間献立、買い物リスト |
+| 分析 | カロリー／PFC／体重／運動量を1週間〜1ヶ月で比較 |
+| 設定 | プロフィール、目標、食べ過ぎ調整、写真の保存期間、バックアップ |
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 開発
 
 ```bash
-npm run reset-project
+npm install
+npm start          # Expo Go で開く（QRコードをスマホで読み取る）
+npm run typecheck  # 型チェック（本体とテストの両方）
+npm test           # 計算ロジックの単体テスト
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### データの再生成
 
-### Other setup steps
+同梱している食品・料理のデータは、`data/` の定義から生成しています。
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+node tools/build-food-seed.mjs   # 成分表 + 別名・常用単位 → assets/data/
+node tools/build-dish-seed.mjs   # 料理361品 → assets/data/dishes.json（食品番号を検証）
+node tools/verify-schema.mjs     # スキーマとデータ投入をNode組み込みSQLiteで検証
+```
 
-## Learn more
+`tools/build-food-seed.mjs` は `data/raw/seibunhyo_honhyo.xlsx` を読みます。
+このファイルは Git に含めていないので、初回は文部科学省のサイトから取得してください。
 
-To learn more about developing your project with Expo, look at the following resources:
+出典: 日本食品標準成分表（八訂）増補2023年（文部科学省）
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## スマートウォッチ連携（Android / Health Connect）
 
-## Join the community
+Health Connect はネイティブの機能のため、**Expo Go では動きません**。
+専用のアプリ（development build）をビルドして端末に入れる必要があります。
 
-Join our community of developers creating universal apps.
+```bash
+npm install -g eas-cli
+eas login                              # Expoアカウントでログイン（無料枠あり）
+eas build --profile development --platform android
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+ビルドが終わると APK のダウンロードリンクが出ます。端末に入れてから
+`npx expo start --dev-client` で開くと、運動タブから Health Connect と連携できます。
+
+端末側に Google の「Health Connect」アプリが必要です（Android 14 以降は標準搭載）。
+
+iPhone（HealthKit）は Apple Developer Program への登録が必要なため未対応です。
+コード側は `src/lib/health.ts` に窓口をまとめてあり、iOS 対応はそこに足せます。
+
+## 構成
+
+```
+src/
+├─ app/          画面（expo-router のファイルベースルーティング）
+├─ components/   共通UI（カード・入力・グラフ）
+├─ db/           SQLiteのスキーマ、マイグレーション、データアクセス、同梱データの投入
+├─ lib/          計算ロジック（目標算出・調整・栄養・単位・献立生成・提案）
+├─ store/        画面をまたぐ状態（zustand）
+└─ theme/        配色
+data/            食品の別名・常用単位、料理361品の定義
+tools/           データ変換と検証のスクリプト
+```
+
+`src/lib/` はUIとDBから切り離した純粋な関数だけを置き、単体テストで担保しています。
+特に食べ過ぎ調整と献立生成は境界条件が多く、画面から確かめるのが難しいためです。

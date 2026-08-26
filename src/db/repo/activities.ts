@@ -180,3 +180,42 @@ export async function listHealthDaily(from: DayKey, to: DayKey): Promise<HealthD
     source: row.source,
   }));
 }
+
+/**
+ * スマートウォッチから取り込んだ1日ぶんのデータを保存する。
+ * 推定値とは別テーブルに入れ、合算しない（企画書の方針をテーブルで担保している）。
+ */
+export async function saveHealthDaily(
+  date: DayKey,
+  values: Omit<HealthDaily, 'date' | 'source'>,
+  source: string
+): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync(
+    `INSERT INTO health_daily
+       (date, steps, distance_km, active_kcal, total_kcal, exercise_min, resting_hr, sleep_min, source, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(date) DO UPDATE SET
+       steps = excluded.steps,
+       distance_km = excluded.distance_km,
+       active_kcal = excluded.active_kcal,
+       total_kcal = excluded.total_kcal,
+       exercise_min = excluded.exercise_min,
+       resting_hr = excluded.resting_hr,
+       sleep_min = excluded.sleep_min,
+       source = excluded.source,
+       synced_at = excluded.synced_at;`,
+    [
+      date,
+      values.steps,
+      values.distanceKm,
+      values.activeKcal,
+      values.totalKcal,
+      values.exerciseMin,
+      values.restingHr,
+      values.sleepMin,
+      source,
+      new Date().toISOString(),
+    ]
+  );
+}

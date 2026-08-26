@@ -11,12 +11,21 @@ import {
   getHealthDaily,
   listActivities,
   listActivitiesInRange,
+  saveHealthDaily,
   type Activity,
   type HealthDaily,
 } from '@/db/repo/activities';
 import { useTodayKey } from '@/hooks/use-today';
 import { addDays, calcAge, formatDayLabel } from '@/lib/day';
 import { estimateBurn } from '@/lib/energy';
+import {
+  availabilityMessage,
+  checkAvailability,
+  openHealthSettings,
+  readDailyHealth,
+  requestHealthPermissions,
+  type HealthAvailability,
+} from '@/lib/health';
 import { ACTIVITY_TYPE_LABELS } from '@/lib/types';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
@@ -35,6 +44,8 @@ export default function ActivityScreen() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [history, setHistory] = useState<Activity[]>([]);
   const [health, setHealth] = useState<HealthDaily | null>(null);
+  const [availability, setAvailability] = useState<HealthAvailability | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const reload = useCallback(async () => {
     const [todayList, historyList, healthRow] = await Promise.all([
@@ -50,8 +61,38 @@ export default function ActivityScreen() {
   useFocusEffect(
     useCallback(() => {
       void reload();
+      void checkAvailability().then(setAvailability);
     }, [reload])
   );
+
+  /** Health Connect から今日ぶんを取り込む */
+  async function syncHealth() {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const granted = await requestHealthPermissions();
+      if (granted === 0) {
+        Alert.alert(
+          'データを読み取れません',
+          'Health Connect でこのアプリへのアクセスを許可してください。'
+        );
+        return;
+      }
+      const values = await readDailyHealth(date, settings.dayStartHour);
+      if (values == null) {
+        Alert.alert('取得できませんでした', 'もう一度お試しください。');
+        return;
+      }
+      await saveHealthDaily(date, values, 'health_connect');
+      await reload();
+      Alert.alert('取り込みました', 'スマートウォッチのデータを更新しました。');
+    } catch (error) {
+      console.error('ヘルスデータの取り込みに失敗しました', error);
+      Alert.alert('取り込めませんでした', 'もう一度お試しください。');
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   if (!profile) return null;
 
@@ -158,9 +199,30 @@ export default function ActivityScreen() {
                   <Row label="総消費" value={`${Math.round(health.totalKcal ?? 0).toLocaleString()} kcal`} />
                 </>
               ) : (
-                <Text style={styles.empty}>
-                  連携するとここに実測値が出ます（対応はこれから追加します）
-                </Text>
+                <Text style={styles.empty}>連携するとここに実測値が出ます</Text>
+              )}
+
+              {availability?.available ? (
+                <Button
+                  title={syncing ? '取り込み中…' : 'スマートウォッチから取り込む'}
+                  variant="secondary"
+                  onPress={syncHealth}
+                  disabled={syncing}
+                />
+              ) : (
+                availability != null && (
+                  <>
+                    <Text style={styles.note}>{availabilityMessage(availability)}</Text>
+                    {availability.reason === 'not-installed' ||
+                    availability.reason === 'update-required' ? (
+                      <Button
+                        title="Health Connect を開く"
+                        variant="ghost"
+                        onPress={openHealthSettings}
+                      />
+                    ) : null}
+                  </>
+                )
               )}
             </View>
 
