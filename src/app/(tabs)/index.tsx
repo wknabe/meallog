@@ -6,10 +6,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScreenHeader } from '@/components/ui/header';
 import { Card, CardTitle, Divider, ProgressBar, Row, Screen } from '@/components/ui/layout';
 import { getActivityKcal, getHealthDaily, type HealthDaily } from '@/db/repo/activities';
-import { getDailyTotals, type DailyTotals } from '@/db/repo/meals';
+import { getDailyTotals, listDailyTotals, type DailyTotals } from '@/db/repo/meals';
 import { getWeight } from '@/db/repo/weights';
 import { useTodayKey } from '@/hooks/use-today';
-import { calcAge, formatDayLabel } from '@/lib/day';
+import { addDays, calcAge, formatDayLabel } from '@/lib/day';
+import { adjustedTarget, computeAdjustment, type AdjustmentResult } from '@/lib/adjustment';
 import { estimateBurn, exerciseBonus, resolveBurn, type EstimatedBurn } from '@/lib/energy';
 import { calcBmi } from '@/lib/targets';
 import { useAppStore } from '@/store/app';
@@ -26,18 +27,24 @@ export default function HomeScreen() {
   const [health, setHealth] = useState<HealthDaily | null>(null);
   const [todayWeight, setTodayWeight] = useState<number | null>(null);
   const [bodyFat, setBodyFat] = useState<number | null>(null);
+  const [adjustment, setAdjustment] = useState<AdjustmentResult | null>(null);
 
   const day = useTodayKey(settings.dayStartHour);
+  // フックの依存に使うため、プロフィールが無い場合も値を取り出しておく
+  const profileTargetKcal = profile?.targetKcal ?? 0;
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       async function load() {
-        const [dailyTotals, kcal, healthRow, weightRow] = await Promise.all([
+        // 食べ過ぎ調整は今日より前の記録だけを見る
+        const historyFrom = addDays(day, -settings.adjustmentDays);
+        const [dailyTotals, kcal, healthRow, weightRow, history] = await Promise.all([
           getDailyTotals(day),
           getActivityKcal(day),
           getHealthDaily(day),
           getWeight(day),
+          listDailyTotals(historyFrom, addDays(day, -1)),
         ]);
         if (cancelled) return;
         setTotals(dailyTotals);
@@ -45,12 +52,36 @@ export default function HomeScreen() {
         setHealth(healthRow);
         setTodayWeight(weightRow?.weightKg ?? null);
         setBodyFat(weightRow?.bodyFatPct ?? null);
+        setAdjustment(
+          computeAdjustment({
+            targetKcal: profileTargetKcal,
+            // listDailyTotals は記録のある日だけを返すので、そのまま渡してよい
+            history: history.map((row) => ({
+              date: row.date,
+              intakeKcal: row.kcal,
+              recorded: true,
+            })),
+            settings: {
+              enabled: settings.adjustmentEnabled,
+              days: settings.adjustmentDays,
+              capPct: settings.adjustmentCapPct,
+              distribution: settings.adjustmentDistribution,
+            },
+          })
+        );
       }
       load().catch((error) => console.error('ホームの読み込みに失敗しました', error));
       return () => {
         cancelled = true;
       };
-    }, [day])
+    }, [
+      day,
+      profileTargetKcal,
+      settings.adjustmentEnabled,
+      settings.adjustmentDays,
+      settings.adjustmentCapPct,
+      settings.adjustmentDistribution,
+    ])
   );
 
   if (!profile) return null;
@@ -74,7 +105,9 @@ export default function HomeScreen() {
 
   // 設定で「運動した分を目標に加算する」をオンにしている場合だけ上乗せする
   const bonusKcal = exerciseBonus(exerciseKcal, settings);
-  const adjustedTargetKcal = profile.targetKcal + bonusKcal;
+  // 直近の食べ過ぎ・食べ足りない分の補正
+  const adjustmentKcal = adjustment?.adjustmentKcal ?? 0;
+  const adjustedTargetKcal = adjustedTarget(profile.targetKcal + bonusKcal, adjustmentKcal);
 
   const remaining = {
     kcal: adjustedTargetKcal - intakeKcal,
@@ -98,9 +131,17 @@ export default function HomeScreen() {
         </View>
         <ProgressBar value={intakeKcal} max={adjustedTargetKcal} />
         <View style={styles.kcalFooter}>
-          {bonusKcal > 0 && (
-            <Text style={styles.bonus}>運動分 +{Math.round(bonusKcal)} kcal</Text>
-          )}
+          <View style={styles.adjustNotes}>
+            {bonusKcal > 0 && (
+              <Text style={styles.bonus}>運動分 +{Math.round(bonusKcal)} kcal</Text>
+            )}
+            {adjustmentKcal !== 0 && (
+              <Text style={[styles.bonus, adjustmentKcal < 0 && { color: colors.warning }]}>
+                調整 {adjustmentKcal > 0 ? '+' : '−'}
+                {Math.abs(adjustmentKcal)} kcal
+              </Text>
+            )}
+          </View>
           <Text style={styles.percent}>
             {adjustedTargetKcal > 0 ? Math.round((intakeKcal / adjustedTargetKcal) * 100) : 0}%
           </Text>
@@ -212,7 +253,19 @@ export default function HomeScreen() {
       </Pressable>
 
       {/* 今日あと何を食べればいい？ */}
-      <View style={styles.suggest}>
+      <Pressable
+        onPress={() =>
+          router.push({
+            pathname: '/suggest',
+            params: {
+              kcal: Math.max(0, Math.round(remaining.kcal)),
+              protein: Math.max(0, Math.round(remaining.proteinG)),
+              fat: Math.max(0, Math.round(remaining.fatG)),
+              carb: Math.max(0, Math.round(remaining.carbG)),
+            },
+          })
+        }
+        style={styles.suggest}>
         <Text style={styles.suggestTitle}>今日あと何を食べればいい？</Text>
         <View style={styles.suggestRow}>
           <Text style={styles.suggestKcal}>{Math.round(Math.max(0, remaining.kcal)).toLocaleString()}</Text>
@@ -228,7 +281,11 @@ export default function HomeScreen() {
             目標を {Math.abs(Math.round(remaining.kcal))} kcal 超えています
           </Text>
         )}
-      </View>
+        <View style={styles.suggestAction}>
+          <Text style={styles.suggestActionText}>おすすめを見る</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.primaryDark} />
+        </View>
+      </Pressable>
 
       {/* 記録への導線 */}
       <Pressable
@@ -282,6 +339,7 @@ const styles = StyleSheet.create({
   kcalValue: { fontSize: fontSize.display, fontWeight: '700', color: colors.text },
   kcalTarget: { fontSize: fontSize.md, color: colors.textSub },
   kcalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  adjustNotes: { flexDirection: 'row', gap: spacing.md },
   bonus: { fontSize: fontSize.xs, color: colors.primary, fontWeight: '600' },
   percent: { fontSize: fontSize.xs, color: colors.textFaint, textAlign: 'right' },
 
@@ -329,6 +387,8 @@ const styles = StyleSheet.create({
   suggestMacros: { flexDirection: 'row', gap: spacing.lg },
   suggestMacro: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '600' },
   suggestOver: { fontSize: fontSize.sm, color: colors.danger, fontWeight: '600' },
+  suggestAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
+  suggestActionText: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '700' },
 
   record: {
     flexDirection: 'row',

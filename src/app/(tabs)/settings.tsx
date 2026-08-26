@@ -15,9 +15,11 @@ import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { resetDatabase } from '@/db';
 import { countFoods } from '@/db/repo/foods';
+import { listDailyTotals } from '@/db/repo/meals';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
 import { formatBytes, photoStorageBytes } from '@/lib/photos';
-import { calcAge } from '@/lib/day';
+import { addDays, calcAge, today } from '@/lib/day';
+import { computeAdjustment, describeAdjustment } from '@/lib/adjustment';
 import { ACTIVITY_LEVELS, calcTargets } from '@/lib/targets';
 import type { ActivityLevel, AdjustmentDistribution, BurnSource, Gender, Profile } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -37,6 +39,7 @@ export default function SettingsScreen() {
   );
   const [foodCount, setFoodCount] = useState<number | null>(null);
   const [photoBytes, setPhotoBytes] = useState<number | null>(null);
+  const [adjustmentNote, setAdjustmentNote] = useState<string | null>(null);
 
   useEffect(() => {
     countFoods().then(setFoodCount).catch(() => setFoodCount(null));
@@ -46,6 +49,43 @@ export default function SettingsScreen() {
       setPhotoBytes(null);
     }
   }, []);
+
+  // 設定を変えた結果がどれくらい効くのかをその場で見せる
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    const day = today(settings.dayStartHour);
+    listDailyTotals(addDays(day, -settings.adjustmentDays), addDays(day, -1))
+      .then((history) => {
+        if (cancelled) return;
+        const result = computeAdjustment({
+          targetKcal: profile.targetKcal,
+          history: history.map((row) => ({
+            date: row.date,
+            intakeKcal: row.kcal,
+            recorded: true,
+          })),
+          settings: {
+            enabled: settings.adjustmentEnabled,
+            days: settings.adjustmentDays,
+            capPct: settings.adjustmentCapPct,
+            distribution: settings.adjustmentDistribution,
+          },
+        });
+        setAdjustmentNote(describeAdjustment(result));
+      })
+      .catch(() => setAdjustmentNote(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    profile,
+    settings.dayStartHour,
+    settings.adjustmentEnabled,
+    settings.adjustmentDays,
+    settings.adjustmentCapPct,
+    settings.adjustmentDistribution,
+  ]);
 
   if (!profile) return null;
 
@@ -314,6 +354,12 @@ export default function SettingsScreen() {
                 onChange={(value) => updateSettings({ adjustmentDistribution: value })}
               />
             </Field>
+
+            {adjustmentNote != null && (
+              <View style={styles.preview}>
+                <Text style={styles.previewText}>{adjustmentNote}</Text>
+              </View>
+            )}
           </>
         )}
       </Card>
@@ -426,6 +472,8 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   description: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
+  preview: { backgroundColor: colors.primaryLight, borderRadius: 10, padding: spacing.md },
+  previewText: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '600' },
   source: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 16 },
   macroRow: { flexDirection: 'row', gap: spacing.sm },
   macroItem: { flex: 1 },

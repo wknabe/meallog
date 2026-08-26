@@ -161,3 +161,34 @@ export async function countFoods(source?: FoodSource): Promise<number> {
     : await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM foods;');
   return row?.count ?? 0;
 }
+
+/**
+ * よく使う食品を食品群で絞って取り出す。
+ *
+ * 別名を付けた食品（kana に区切りの | が入っているもの）だけを対象にする。
+ * 成分表には「〜 ゆで」「〜 油いため」のような調理違いが大量にあり、
+ * そのまま候補にすると提案が不自然になるため、日常語で呼べるものに限っている。
+ */
+export async function listCommonFoods(groupCodes: string[], limit = 30): Promise<Food[]> {
+  const db = getDatabase();
+  const placeholders = groupCodes.map(() => '?').join(',');
+  const rows = await db.getAllAsync<FoodRow>(
+    `SELECT * FROM foods
+     WHERE group_code IN (${placeholders})
+       AND (kana LIKE '%|%' OR source = 'product')
+     ORDER BY use_count DESC, id ASC
+     LIMIT ?;`,
+    [...groupCodes, limit]
+  );
+  return rows.map(toFood);
+}
+
+/** 食品群のまとまり。提案で使う */
+export const FOOD_GROUP_SETS = {
+  /** 魚介・肉・卵・豆 */
+  protein: ['10', '11', '12', '04'],
+  /** 穀類・いも */
+  staple: ['01', '02'],
+  /** 野菜・きのこ・藻類 */
+  vegetable: ['06', '08', '09'],
+} as const;

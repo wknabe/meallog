@@ -153,3 +153,30 @@ export async function getHealthDaily(date: DayKey): Promise<HealthDaily | null> 
     source: row.source,
   };
 }
+
+/** 期間内のスマートウォッチ由来データ */
+export async function listHealthDaily(from: DayKey, to: DayKey): Promise<HealthDaily[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<{
+    date: string;
+    steps: number | null;
+    distance_km: number | null;
+    active_kcal: number | null;
+    total_kcal: number | null;
+    exercise_min: number | null;
+    resting_hr: number | null;
+    sleep_min: number | null;
+    source: string | null;
+  }>('SELECT * FROM health_daily WHERE date BETWEEN ? AND ? ORDER BY date ASC;', [from, to]);
+  return rows.map((row) => ({
+    date: row.date,
+    steps: row.steps,
+    distanceKm: row.distance_km,
+    activeKcal: row.active_kcal,
+    totalKcal: row.total_kcal,
+    exerciseMin: row.exercise_min,
+    restingHr: row.resting_hr,
+    sleepMin: row.sleep_min,
+    source: row.source,
+  }));
+}
