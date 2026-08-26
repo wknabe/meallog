@@ -1,0 +1,85 @@
+{
+  "_comment": "よく使う食品の別名と常用単位。成分表の名称（例:『にわとり ［若どり・主品目］ むね 皮なし 生』）では日常語で検索できないため、別名を検索用テキストに追加する。units の purchase:true は買い物リストで使う購入単位。tools/build-food-seed.mjs が assets/data/ に反映する。",
+  "foods": [
+    { "code": "01088", "aliases": ["白米", "ごはん", "ご飯", "米飯", "白ごはん", "ライス"], "units": [{ "name": "杯", "grams": 150 }, { "name": "茶碗", "grams": 150 }] },
+    { "code": "01085", "aliases": ["玄米ごはん", "玄米ご飯"], "units": [{ "name": "杯", "grams": 150 }] },
+    { "code": "01083", "aliases": ["米", "白米(生)", "精白米"], "units": [{ "name": "合", "grams": 150 }, { "name": "kg", "grams": 1000, "purchase": true }] },
+    { "code": "01026", "aliases": ["食パン", "パン"], "units": [{ "name": "6枚切1枚", "grams": 60 }, { "name": "8枚切1枚", "grams": 45 }, { "name": "斤", "grams": 360, "purchase": true }] },
+    { "code": "01034", "aliases": ["ロールパン", "バターロール"], "units": [{ "name": "個", "grams": 30, "purchase": true }] },
+    { "code": "01039", "aliases": ["うどん", "ゆでうどん"], "units": [{ "name": "玉", "grams": 230, "purchase": true }] },
+    { "code": "01128", "aliases": ["そば", "蕎麦", "ゆでそば"], "units": [{ "name": "玉", "grams": 180, "purchase": true }] },
+    { "code": "01064", "aliases": ["パスタ", "スパゲッティ", "スパゲティ", "マカロニ"], "units": [{ "name": "人前", "grams": 250 }] },
+    { "code": "01048", "aliases": ["中華麺", "ラーメン", "中華めん"], "units": [{ "name": "玉", "grams": 170, "purchase": true }] },
+    { "code": "01111", "aliases": ["おにぎり", "おむすび"], "units": [{ "name": "個", "grams": 100, "purchase": true }] },
+
+    { "code": "02017", "aliases": ["じゃがいも", "ジャガイモ", "馬鈴薯", "ポテト"], "units": [{ "name": "個", "grams": 135, "purchase": true }] },
+    { "code": "02045", "aliases": ["さつまいも", "サツマイモ", "さつま芋"], "units": [{ "name": "本", "grams": 200, "purchase": true }] },
+
+    { "code": "03003", "aliases": ["砂糖", "さとう", "上白糖"], "units": [{ "name": "大さじ", "grams": 9 }, { "name": "小さじ", "grams": 3 }] },
+
+    { "code": "04046", "aliases": ["納豆", "なっとう"], "units": [{ "name": "パック", "grams": 45, "purchase": true }] },
+    { "code": "04032", "aliases": ["豆腐", "木綿豆腐", "とうふ"], "units": [{ "name": "丁", "grams": 300, "purchase": true }] },
+    { "code": "04033", "aliases": ["絹ごし豆腐", "絹豆腐"], "units": [{ "name": "丁", "grams": 300, "purchase": true }] },
+
+    { "code": "06153", "aliases": ["玉ねぎ", "玉葱", "タマネギ", "オニオン"], "units": [{ "name": "個", "grams": 200, "purchase": true }] },
+    { "code": "06212", "aliases": ["にんじん", "人参", "ニンジン"], "units": [{ "name": "本", "grams": 150, "purchase": true }] },
+    { "code": "06061", "aliases": ["キャベツ", "きゃべつ"], "units": [{ "name": "枚", "grams": 50 }, { "name": "玉", "grams": 1200, "purchase": true }] },
+    { "code": "06233", "aliases": ["白菜", "ハクサイ", "はくさい"], "units": [{ "name": "枚", "grams": 100 }, { "name": "株", "grams": 2000, "purchase": true }] },
+    { "code": "06132", "aliases": ["大根", "ダイコン", "だいこん"], "units": [{ "name": "本", "grams": 1000, "purchase": true }] },
+    { "code": "06182", "aliases": ["トマト", "とまと"], "units": [{ "name": "個", "grams": 200, "purchase": true }] },
+    { "code": "06183", "aliases": ["ミニトマト", "プチトマト"], "units": [{ "name": "個", "grams": 15 }, { "name": "パック", "grams": 200, "purchase": true }] },
+    { "code": "06065", "aliases": ["きゅうり", "キュウリ", "胡瓜"], "units": [{ "name": "本", "grams": 100, "purchase": true }] },
+    { "code": "06191", "aliases": ["なす", "ナス", "茄子"], "units": [{ "name": "本", "grams": 80, "purchase": true }] },
+    { "code": "06245", "aliases": ["ピーマン", "青ピーマン"], "units": [{ "name": "個", "grams": 35, "purchase": true }] },
+    { "code": "06267", "aliases": ["ほうれん草", "ホウレンソウ", "ほうれんそう"], "units": [{ "name": "束", "grams": 200, "purchase": true }] },
+    { "code": "06086", "aliases": ["小松菜", "コマツナ", "こまつな"], "units": [{ "name": "束", "grams": 200, "purchase": true }] },
+    { "code": "06263", "aliases": ["ブロッコリー"], "units": [{ "name": "株", "grams": 250, "purchase": true }] },
+    { "code": "06312", "aliases": ["レタス"], "units": [{ "name": "枚", "grams": 30 }, { "name": "玉", "grams": 300, "purchase": true }] },
+    { "code": "06291", "aliases": ["もやし", "モヤシ"], "units": [{ "name": "袋", "grams": 200, "purchase": true }] },
+    { "code": "06084", "aliases": ["ごぼう", "ゴボウ", "牛蒡"], "units": [{ "name": "本", "grams": 180, "purchase": true }] },
+    { "code": "06317", "aliases": ["れんこん", "レンコン", "蓮根"], "units": [{ "name": "節", "grams": 200, "purchase": true }] },
+    { "code": "06048", "aliases": ["かぼちゃ", "カボチャ", "南瓜"], "units": [{ "name": "個", "grams": 1000, "purchase": true }] },
+    { "code": "06226", "aliases": ["長ねぎ", "ねぎ", "ネギ", "長葱", "白ねぎ"], "units": [{ "name": "本", "grams": 100, "purchase": true }] },
+    { "code": "06207", "aliases": ["にら", "ニラ", "韮"], "units": [{ "name": "束", "grams": 100, "purchase": true }] },
+    { "code": "06103", "aliases": ["しょうが", "生姜", "ショウガ"], "units": [{ "name": "片", "grams": 15 }] },
+    { "code": "06223", "aliases": ["にんにく", "ニンニク", "大蒜"], "units": [{ "name": "片", "grams": 5 }, { "name": "玉", "grams": 50, "purchase": true }] },
+    { "code": "06032", "aliases": ["オクラ"], "units": [{ "name": "本", "grams": 8 }, { "name": "袋", "grams": 80, "purchase": true }] },
+    { "code": "06007", "aliases": ["アスパラガス", "アスパラ"], "units": [{ "name": "本", "grams": 25 }, { "name": "束", "grams": 100, "purchase": true }] },
+    { "code": "06175", "aliases": ["とうもろこし", "コーン", "スイートコーン"], "units": [{ "name": "本", "grams": 200, "purchase": true }] },
+
+    { "code": "08016", "aliases": ["しめじ", "シメジ", "ぶなしめじ"], "units": [{ "name": "袋", "grams": 100, "purchase": true }] },
+    { "code": "08001", "aliases": ["えのき", "エノキ", "えのきたけ"], "units": [{ "name": "袋", "grams": 100, "purchase": true }] },
+    { "code": "08039", "aliases": ["しいたけ", "シイタケ", "椎茸"], "units": [{ "name": "個", "grams": 15 }, { "name": "パック", "grams": 100, "purchase": true }] },
+
+    { "code": "10134", "aliases": ["鮭", "サケ", "さけ", "しゃけ", "サーモン"], "units": [{ "name": "切れ", "grams": 80, "purchase": true }] },
+    { "code": "10154", "aliases": ["さば", "サバ", "鯖"], "units": [{ "name": "切れ", "grams": 80, "purchase": true }] },
+    { "code": "10003", "aliases": ["あじ", "アジ", "鯵"], "units": [{ "name": "尾", "grams": 80, "purchase": true }] },
+    { "code": "10241", "aliases": ["ぶり", "ブリ", "鰤"], "units": [{ "name": "切れ", "grams": 80, "purchase": true }] },
+    { "code": "10173", "aliases": ["さんま", "サンマ", "秋刀魚"], "units": [{ "name": "尾", "grams": 100, "purchase": true }] },
+    { "code": "10253", "aliases": ["まぐろ", "マグロ", "鮪", "まぐろ赤身"], "units": [{ "name": "さく", "grams": 150, "purchase": true }] },
+
+    { "code": "11220", "aliases": ["鶏むね肉", "鶏胸肉", "とりむね", "鶏むね", "むね肉", "鶏肉むね"], "units": [{ "name": "枚", "grams": 250, "purchase": true }] },
+    { "code": "11219", "aliases": ["鶏むね肉皮つき", "鶏胸肉皮つき"], "units": [{ "name": "枚", "grams": 300, "purchase": true }] },
+    { "code": "11221", "aliases": ["鶏もも肉", "鶏もも", "とりもも", "もも肉", "鶏肉もも"], "units": [{ "name": "枚", "grams": 250, "purchase": true }] },
+    { "code": "11224", "aliases": ["鶏もも肉皮なし"], "units": [{ "name": "枚", "grams": 220, "purchase": true }] },
+    { "code": "11123", "aliases": ["豚ロース", "豚ロース肉"], "units": [{ "name": "枚", "grams": 100, "purchase": true }] },
+    { "code": "11130", "aliases": ["豚もも肉", "豚もも"], "units": [{ "name": "g", "grams": 1, "purchase": true }] },
+    { "code": "11115", "aliases": ["豚こま", "豚こま切れ", "豚小間", "豚かた肉"], "units": [{ "name": "パック", "grams": 250, "purchase": true }] },
+
+    { "code": "12004", "aliases": ["卵", "たまご", "玉子", "鶏卵", "生卵"], "units": [{ "name": "個", "grams": 50, "purchase": true }, { "name": "パック", "grams": 500 }] },
+
+    { "code": "13003", "aliases": ["牛乳", "ミルク"], "units": [{ "name": "杯", "grams": 200 }, { "name": "パック", "grams": 1000, "purchase": true }] },
+    { "code": "13025", "aliases": ["ヨーグルト", "プレーンヨーグルト"], "units": [{ "name": "個", "grams": 100 }, { "name": "パック", "grams": 400, "purchase": true }] },
+    { "code": "13040", "aliases": ["チーズ", "プロセスチーズ", "スライスチーズ"], "units": [{ "name": "枚", "grams": 18, "purchase": true }] },
+
+    { "code": "14006", "aliases": ["サラダ油", "食用油", "油"], "units": [{ "name": "大さじ", "grams": 12 }, { "name": "小さじ", "grams": 4 }] },
+    { "code": "14001", "aliases": ["オリーブオイル", "オリーブ油"], "units": [{ "name": "大さじ", "grams": 12 }, { "name": "小さじ", "grams": 4 }] },
+
+    { "code": "16025", "aliases": ["みりん", "味醂"], "units": [{ "name": "大さじ", "grams": 18 }, { "name": "小さじ", "grams": 6 }] },
+
+    { "code": "17007", "aliases": ["しょうゆ", "醤油", "しょう油"], "units": [{ "name": "大さじ", "grams": 18 }, { "name": "小さじ", "grams": 6 }] },
+    { "code": "17045", "aliases": ["みそ", "味噌"], "units": [{ "name": "大さじ", "grams": 18 }, { "name": "小さじ", "grams": 6 }] },
+    { "code": "17015", "aliases": ["酢", "お酢", "穀物酢"], "units": [{ "name": "大さじ", "grams": 15 }, { "name": "小さじ", "grams": 5 }] },
+    { "code": "17138", "aliases": ["料理酒", "酒"], "units": [{ "name": "大さじ", "grams": 15 }, { "name": "小さじ", "grams": 5 }] }
+  ]
+}

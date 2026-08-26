@@ -17,6 +17,14 @@ type FoodSeedFile = {
 // 2,500件ぶんのJSONを import すると型推論が巨大になり、型チェックが極端に遅くなるため。
 const seed = require('@/assets/data/foods.json') as FoodSeedFile;
 
+type UnitSeedFile = {
+  columns: string[];
+  /** [食品番号, 単位名, グラム, 購入単位か, 並び順] */
+  rows: [string, string, number, number, number][];
+};
+
+const unitSeed = require('@/assets/data/food-units.json') as UnitSeedFile;
+
 /** 1回のINSERTでまとめる件数。SQLiteのプレースホルダ数の上限に余裕を持たせている */
 const BATCH_SIZE = 25;
 
@@ -46,6 +54,15 @@ export async function seedStandardFoods(db: SQLiteDatabase): Promise<number> {
       await db.runAsync(
         `INSERT INTO foods (${columnList}) VALUES ${batch.map(() => placeholders).join(',')};`,
         values
+      );
+    }
+
+    // 常用単位（卵=1個50g、キャベツ=1玉1200g など）
+    for (const [stdCode, name, grams, isPurchaseUnit, sortOrder] of unitSeed.rows) {
+      await db.runAsync(
+        `INSERT INTO food_units (food_id, name, grams, is_purchase_unit, sort_order)
+         SELECT id, ?, ?, ?, ? FROM foods WHERE std_code = ?;`,
+        [name, grams, isPurchaseUnit, sortOrder, stdCode]
       );
     }
   });

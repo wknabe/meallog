@@ -41,7 +41,18 @@ for (let offset = 0; offset < seed.rows.length; offset += BATCH_SIZE) {
     `INSERT INTO foods (${columns.join(',')}) VALUES ${batch.map(() => placeholders).join(',')};`
   ).run(...values);
 }
+
+// 常用単位
+const unitSeed = JSON.parse(await readFile('assets/data/food-units.json', 'utf8'));
+for (const [stdCode, name, grams, isPurchase, sortOrder] of unitSeed.rows) {
+  db.prepare(
+    `INSERT INTO food_units (food_id, name, grams, is_purchase_unit, sort_order)
+     SELECT id, ?, ?, ?, ? FROM foods WHERE std_code = ?;`
+  ).run(name, grams, isPurchase, sortOrder, stdCode);
+}
 db.exec('COMMIT;');
+const unitCount = db.prepare('SELECT COUNT(*) AS c FROM food_units;').get().c;
+console.log(`常用単位 ${unitCount}件`);
 
 const count = db.prepare("SELECT COUNT(*) AS c FROM foods WHERE source = 'standard';").get().c;
 console.log(`投入 ${count}件 / ${Date.now() - started}ms`);
@@ -54,13 +65,16 @@ const search = (keyword) => {
     .prepare(
       `SELECT name, kcal, protein_g, fat_g, carb_g FROM foods
        WHERE name LIKE ? OR kana LIKE ?
-       ORDER BY CASE WHEN name LIKE ? THEN 0 ELSE 1 END, LENGTH(name) ASC
+       ORDER BY
+         CASE WHEN kana LIKE ? THEN 0 ELSE 1 END,
+         CASE WHEN name LIKE ? THEN 0 ELSE 1 END,
+         LENGTH(name) ASC
        LIMIT 3;`
     )
-    .all(pattern, normalized, `${keyword}%`);
+    .all(pattern, normalized, `%|${keyword}|%`, `${keyword}%`);
 };
 
-for (const keyword of ['鶏卵', 'にわとりむね', 'こめ水稲めし精白米', 'キャベツ', 'ブロッコリー']) {
+for (const keyword of ['鶏むね肉', '玉ねぎ', '白米', 'ごはん', '鮭', '豚こま', 'ブロッコリー']) {
   console.log(`--- 「${keyword}」`);
   const hits = search(keyword);
   if (hits.length === 0) console.log('   ヒットなし');
@@ -114,6 +128,20 @@ try {
   console.log('--- settings の単一行制約: 効いていません（想定外）');
 } catch {
   console.log('--- settings の単一行制約: 効いています');
+}
+
+// ── 常用単位の確認 ──
+const units = db
+  .prepare(
+    `SELECT f.name AS food, u.name AS unit, u.grams, u.is_purchase_unit
+     FROM food_units u JOIN foods f ON f.id = u.food_id
+     WHERE f.std_code IN ('12004', '06061', '10134', '17007')
+     ORDER BY f.std_code, u.sort_order;`
+  )
+  .all();
+console.log('--- 常用単位');
+for (const u of units) {
+  console.log(`   ${u.food} = 1${u.unit} ${u.grams}g${u.is_purchase_unit ? '（購入単位）' : ''}`);
 }
 
 console.log('検証完了');

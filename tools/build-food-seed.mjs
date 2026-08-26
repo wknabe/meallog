@@ -10,10 +10,11 @@
  * ファイルが数倍に膨らみ、アプリの起動が遅くなるため。
  */
 import ExcelJS from 'exceljs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const INPUT = 'data/raw/seibunhyo_honhyo.xlsx';
 const OUTPUT = 'assets/data/foods.json';
+const UNITS_OUTPUT = 'assets/data/food-units.json';
 const DATA_START_ROW = 13;
 
 /** 出力する列と、Excel上の列番号の対応 */
@@ -136,6 +137,35 @@ for (let r = DATA_START_ROW; r <= sheet.rowCount; r++) {
   rows.push(record);
 }
 
+// ── よく使う食品の別名と常用単位を反映する ──
+// 成分表の名称は「にわとり ［若どり・主品目］ むね 皮なし 生」のような形式で、
+// 「鶏むね肉」「玉ねぎ」といった日常語では検索できない。別名を検索用テキストへ足して補う。
+const common = JSON.parse(await readFile('data/common-foods.json', 'utf8'));
+const codeIndex = new Map(rows.map((row) => [row[0], row]));
+const kanaIndex = COLUMNS.length; // kana は最後に push した列
+const nameIndex = COLUMNS.findIndex(([key]) => key === 'name');
+
+const unitRows = [];
+const missing = [];
+
+for (const entry of common.foods) {
+  const row = codeIndex.get(entry.code);
+  if (!row) {
+    missing.push(entry.code);
+    continue;
+  }
+  // 別名は | で囲む。検索時に「別名そのものと一致した」を判定して上位に出すため
+  row[kanaIndex] = `${row[kanaIndex]}|${entry.aliases.join('|')}|`;
+  for (const [order, unit] of (entry.units ?? []).entries()) {
+    unitRows.push([entry.code, unit.name, unit.grams, unit.purchase ? 1 : 0, order]);
+  }
+  console.log(`  ${entry.code} ${row[nameIndex]}  ← ${entry.aliases.join('/')}`);
+}
+
+if (missing.length > 0) {
+  throw new Error(`common-foods.json に存在しない食品番号があります: ${missing.join(', ')}`);
+}
+
 const output = {
   source: '日本食品標準成分表（八訂）増補2023年（文部科学省）',
   generatedAt: new Date().toISOString().slice(0, 10),
@@ -146,6 +176,11 @@ const output = {
 
 await mkdir('assets/data', { recursive: true });
 await writeFile(OUTPUT, JSON.stringify(output));
+await writeFile(
+  UNITS_OUTPUT,
+  JSON.stringify({ columns: ['std_code', 'name', 'grams', 'is_purchase_unit', 'sort_order'], rows: unitRows })
+);
 
 console.log(`変換しました: ${rows.length}件（除外 ${skipped}行）`);
-console.log(`出力: ${OUTPUT}`);
+console.log(`別名を付けた食品: ${common.foods.length}件 / 常用単位: ${unitRows.length}件`);
+console.log(`出力: ${OUTPUT}, ${UNITS_OUTPUT}`);

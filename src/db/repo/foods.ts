@@ -86,20 +86,24 @@ export async function searchFoods(
 
   const pattern = `%${keyword}%`;
   const normalized = `%${keyword.replace(/[\s［］[\]（）()・,、]/g, '')}%`;
+  // 別名は kana 列に |鶏むね肉|鶏胸肉| の形で入っているので、区切りごと一致させると別名そのものの指定だと分かる
+  const aliasExact = `%|${keyword}|%`;
   const rows = await db.getAllAsync<FoodRow>(
     `SELECT * FROM foods
      WHERE (name LIKE ? OR kana LIKE ?)
        ${options.source ? 'AND source = ?' : ''}
      ORDER BY
        is_favorite DESC,
+       -- 「白米」のように別名が完全に一致するものを最優先で出す
+       CASE WHEN kana LIKE ? THEN 0 ELSE 1 END,
        use_count DESC,
-       -- 名前の先頭に一致するものを上に出す
+       -- 次に名前の先頭に一致するもの
        CASE WHEN name LIKE ? THEN 0 ELSE 1 END,
        LENGTH(name) ASC
      LIMIT ?;`,
     options.source
-      ? [pattern, normalized, options.source, `${keyword}%`, limit]
-      : [pattern, normalized, `${keyword}%`, limit]
+      ? [pattern, normalized, options.source, aliasExact, `${keyword}%`, limit]
+      : [pattern, normalized, aliasExact, `${keyword}%`, limit]
   );
   return rows.map(toFood);
 }
