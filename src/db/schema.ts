@@ -192,7 +192,8 @@ CREATE TABLE meal_items (
   ref_type   TEXT    NOT NULL,                     -- 'food'|'dish'
   ref_id     INTEGER NOT NULL,
   name       TEXT    NOT NULL,                     -- 記録時点の名称
-  quantity   REAL    NOT NULL,                     -- foodはグラム数、dishは人数分
+  -- 単位があればその個数（卵なら1）、なければグラム数。実重量は必ず grams を使う
+  quantity   REAL    NOT NULL,
   unit_label TEXT,                                 -- '1パック' などの表示用
   grams      REAL    NOT NULL DEFAULT 0,           -- 実重量（買い物・在庫の計算用）
   -- 集計を速くするための主要栄養素

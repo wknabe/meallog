@@ -24,6 +24,8 @@ export default function ManualEntryScreen() {
   const [carb, setCarb] = useState('');
   const [fiber, setFiber] = useState('');
   const [grams, setGrams] = useState('');
+  // 連打で同じ内容が2件追加されるのを防ぐ
+  const [added, setAdded] = useState(false);
 
   const proteinValue = Number(protein) || 0;
   const fatValue = Number(fat) || 0;
@@ -34,7 +36,8 @@ export default function ManualEntryScreen() {
   const canSave = name.trim() !== '' && kcalValue > 0;
 
   function handleAdd() {
-    if (!canSave) return;
+    if (!canSave || added) return;
+    setAdded(true);
     const nutrients = emptyNutrients();
     nutrients.kcal = kcalValue;
     nutrients.protein_g = proteinValue;
@@ -108,7 +111,7 @@ export default function ManualEntryScreen() {
         商品として繰り返し使う場合は、成分表を撮影して「マイ食品」に登録すると次から検索できます。
       </Text>
 
-      <Button title="食事に追加" onPress={handleAdd} disabled={!canSave} />
+      <Button title="食事に追加" onPress={handleAdd} disabled={!canSave || added} />
     </Screen>
   );
 }

@@ -8,7 +8,8 @@ import { SegmentedControl } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { MACRO_KEYS, MINERAL_KEYS, NUTRIENT_LABELS, VITAMIN_KEYS, addNutrients, emptyNutrients } from '@/db/nutrients';
 import { listMealsByDate } from '@/db/repo/meals';
-import { addDays, formatDayLabel, formatTime, today } from '@/lib/day';
+import { useSelectableDate } from '@/hooks/use-today';
+import { addDays, formatDayLabel, formatTime } from '@/lib/day';
 import { photoUri } from '@/lib/photos';
 import { formatGrams } from '@/lib/units';
 import { MEAL_SLOT_LABELS, MEAL_SLOT_ORDER, type Meal, type MealSlot } from '@/lib/types';
@@ -21,7 +22,7 @@ type Tab = 'list' | 'nutrition';
 export default function MealsScreen() {
   const router = useRouter();
   const settings = useAppStore((s) => s.settings);
-  const [date, setDate] = useState(() => today(settings.dayStartHour));
+  const { date, todayKey, setDate } = useSelectableDate(settings.dayStartHour);
   const [tab, setTab] = useState<Tab>('list');
   const [meals, setMeals] = useState<Meal[]>([]);
   const startDraft = useMealDraftStore((s) => s.start);
@@ -55,7 +56,6 @@ export default function MealsScreen() {
   function openMeal(meal: Meal) {
     startDraft({
       mealId: meal.id,
-      date: meal.date,
       slot: meal.slot,
       eatenAt: meal.eatenAt,
       photoPath: meal.photoPath,
@@ -80,7 +80,7 @@ export default function MealsScreen() {
         <Pressable onPress={() => setDate(addDays(date, -1))} hitSlop={8} style={styles.navButton}>
           <Ionicons name="chevron-back" size={22} color={colors.primary} />
         </Pressable>
-        <Pressable onPress={() => setDate(today(settings.dayStartHour))}>
+        <Pressable onPress={() => setDate(todayKey)}>
           <Text style={styles.dateLabel}>{formatDayLabel(date)}</Text>
         </Pressable>
         <Pressable onPress={() => setDate(addDays(date, 1))} hitSlop={8} style={styles.navButton}>

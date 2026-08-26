@@ -71,10 +71,9 @@ export async function savePhoto(
         context.resize({ height: spec.maxSide });
       }
     }
-  } else {
-    // 大きさが分からない場合は幅を基準にする
-    context.resize({ width: spec.maxSide });
   }
+  // 大きさが分からない場合は縮小しない。
+  // 無条件にリサイズすると、小さい写真を引き伸ばして画質もファイルサイズも悪化するため。
 
   const rendered = await context.renderAsync();
   const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: spec.compress });

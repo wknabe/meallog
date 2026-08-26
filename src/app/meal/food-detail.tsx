@@ -16,7 +16,7 @@ import {
 } from '@/db/repo/foods';
 import { dishToMealItem, foodToMealItem } from '@/db/repo/meal-builder';
 import { nutrientsForFood } from '@/lib/nutrition';
-import { toGrams } from '@/lib/units';
+import { fromGrams, toGrams } from '@/lib/units';
 import { useMealDraftStore } from '@/store/meal-draft';
 import { colors, fontSize, spacing } from '@/theme/colors';
 
@@ -35,6 +35,8 @@ export default function FoodDetailScreen() {
   /** null はグラム直接入力 */
   const [unitId, setUnitId] = useState<number | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  // 連打で同じ食材が2件追加されるのを防ぐ
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +79,8 @@ export default function FoodDetailScreen() {
   }, [dish, food, grams, quantity]);
 
   function handleAdd() {
-    if (quantity <= 0) return;
+    if (quantity <= 0 || added) return;
+    setAdded(true);
     if (dish) {
       addItems([dishToMealItem(dish, quantity)]);
       void incrementDishUseCount(dish.id);
@@ -85,6 +88,7 @@ export default function FoodDetailScreen() {
       addItems([foodToMealItem(food, quantity, selectedUnit)]);
       void incrementFoodUseCount(food.id);
     } else {
+      setAdded(false);
       return;
     }
     // 記録画面まで一気に戻る。記録画面が履歴になければ、この画面と置き換わる
@@ -134,7 +138,7 @@ export default function FoodDetailScreen() {
               setUnitId(nextUnit?.id ?? null);
               setQuantityText(
                 nextUnit
-                  ? String(Number((currentGrams / nextUnit.grams).toFixed(2)))
+                  ? String(Number(fromGrams(currentGrams, nextUnit).toFixed(2)))
                   : String(Math.round(currentGrams))
               );
             }}
@@ -200,7 +204,7 @@ export default function FoodDetailScreen() {
         </Card>
       )}
 
-      <Button title="食事に追加" onPress={handleAdd} disabled={quantity <= 0} />
+      <Button title="食事に追加" onPress={handleAdd} disabled={quantity <= 0 || added} />
     </Screen>
   );
 }

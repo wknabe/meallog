@@ -5,11 +5,11 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/ui/layout';
+import { useTodayKey } from '@/hooks/use-today';
 import { savePhoto } from '@/lib/photos';
-import { today } from '@/lib/day';
 import { MEAL_SLOT_LABELS, type MealSlot } from '@/lib/types';
 import { useAppStore } from '@/store/app';
-import { useMealDraftStore } from '@/store/meal-draft';
+import { buildEatenAt, useMealDraftStore } from '@/store/meal-draft';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
 type Method = {
@@ -35,11 +35,22 @@ export default function NewMealScreen() {
   const startDraft = useMealDraftStore((s) => s.start);
   const [busy, setBusy] = useState(false);
 
-  const date = params.date ?? today(settings.dayStartHour);
-  const slot = (params.slot as MealSlot) ?? guessSlot();
+  const todayKey = useTodayKey(settings.dayStartHour);
+  const date = params.date ?? todayKey;
+  const slot = (params.slot as MealSlot) ?? guessSlot(settings.dayStartHour);
 
-  function begin(photoPath: string | null) {
-    startDraft({ date, slot, photoPath, items: [] });
+  /**
+   * 下書きを開始する。
+   * 履歴で選んだ日付を反映させるため、日時はここで組み立てる。
+   */
+  function begin(photoPath: string | null, photoUncommitted = false) {
+    startDraft({
+      slot,
+      eatenAt: buildEatenAt(date, slot, todayKey),
+      photoPath,
+      photoUncommitted,
+      items: [],
+    });
   }
 
   async function pickPhoto(source: 'camera' | 'library') {
@@ -70,7 +81,7 @@ export default function NewMealScreen() {
         width: asset.width,
         height: asset.height,
       });
-      begin(path);
+      begin(path, true);
       router.replace('/meal/edit');
     } catch (error) {
       console.error('写真の取り込みに失敗しました', error);
@@ -81,6 +92,7 @@ export default function NewMealScreen() {
   }
 
   function handle(method: string) {
+    if (busy) return;
     switch (method) {
       case 'camera':
         void pickPhoto('camera');
@@ -105,9 +117,7 @@ export default function NewMealScreen() {
 
   return (
     <Screen>
-      <Text style={styles.lead}>
-        {MEAL_SLOT_LABELS[slot]}の記録方法を選択してください
-      </Text>
+      <Text style={styles.lead}>{MEAL_SLOT_LABELS[slot]}の記録方法を選択してください</Text>
 
       <View style={styles.list}>
         {METHODS.map((method) => (
@@ -132,9 +142,13 @@ export default function NewMealScreen() {
   );
 }
 
-/** 時刻から食事の区分を推測する。記録画面で変更できる */
-function guessSlot(): MealSlot {
+/**
+ * 時刻から食事の区分を推測する。記録画面で変更できる。
+ * 区切り時刻より前（深夜）は前日ぶんの間食として扱うのが自然なので朝食にしない。
+ */
+function guessSlot(dayStartHour: number): MealSlot {
   const hour = new Date().getHours();
+  if (hour < dayStartHour) return 'snack';
   if (hour < 10) return 'breakfast';
   if (hour < 15) return 'lunch';
   if (hour < 21) return 'dinner';

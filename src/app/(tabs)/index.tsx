@@ -8,8 +8,9 @@ import { Card, CardTitle, Divider, ProgressBar, Row, Screen } from '@/components
 import { getActivityKcal, getHealthDaily, type HealthDaily } from '@/db/repo/activities';
 import { getDailyTotals, type DailyTotals } from '@/db/repo/meals';
 import { getWeight } from '@/db/repo/weights';
-import { calcAge, formatDayLabel, today } from '@/lib/day';
-import { estimateBurn, resolveBurn, type EstimatedBurn } from '@/lib/energy';
+import { useTodayKey } from '@/hooks/use-today';
+import { calcAge, formatDayLabel } from '@/lib/day';
+import { estimateBurn, exerciseBonus, resolveBurn, type EstimatedBurn } from '@/lib/energy';
 import { calcBmi } from '@/lib/targets';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
@@ -26,7 +27,7 @@ export default function HomeScreen() {
   const [todayWeight, setTodayWeight] = useState<number | null>(null);
   const [bodyFat, setBodyFat] = useState<number | null>(null);
 
-  const day = today(settings.dayStartHour);
+  const day = useTodayKey(settings.dayStartHour);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,8 +72,12 @@ export default function HomeScreen() {
     ? resolveBurn(settings.burnSource, estimate, health)
     : null;
 
+  // 設定で「運動した分を目標に加算する」をオンにしている場合だけ上乗せする
+  const bonusKcal = exerciseBonus(exerciseKcal, settings);
+  const adjustedTargetKcal = profile.targetKcal + bonusKcal;
+
   const remaining = {
-    kcal: profile.targetKcal - intakeKcal,
+    kcal: adjustedTargetKcal - intakeKcal,
     proteinG: profile.targetProteinG - (totals?.proteinG ?? 0),
     fatG: profile.targetFatG - (totals?.fatG ?? 0),
     carbG: profile.targetCarbG - (totals?.carbG ?? 0),
@@ -87,12 +92,19 @@ export default function HomeScreen() {
         <CardTitle>摂取カロリー</CardTitle>
         <View style={styles.kcalRow}>
           <Text style={styles.kcalValue}>{Math.round(intakeKcal).toLocaleString()}</Text>
-          <Text style={styles.kcalTarget}>/ {profile.targetKcal.toLocaleString()} kcal</Text>
+          <Text style={styles.kcalTarget}>
+            / {Math.round(adjustedTargetKcal).toLocaleString()} kcal
+          </Text>
         </View>
-        <ProgressBar value={intakeKcal} max={profile.targetKcal} />
-        <Text style={styles.percent}>
-          {profile.targetKcal > 0 ? Math.round((intakeKcal / profile.targetKcal) * 100) : 0}%
-        </Text>
+        <ProgressBar value={intakeKcal} max={adjustedTargetKcal} />
+        <View style={styles.kcalFooter}>
+          {bonusKcal > 0 && (
+            <Text style={styles.bonus}>運動分 +{Math.round(bonusKcal)} kcal</Text>
+          )}
+          <Text style={styles.percent}>
+            {adjustedTargetKcal > 0 ? Math.round((intakeKcal / adjustedTargetKcal) * 100) : 0}%
+          </Text>
+        </View>
       </Card>
 
       {/* PFC */}
@@ -269,6 +281,8 @@ const styles = StyleSheet.create({
   kcalRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   kcalValue: { fontSize: fontSize.display, fontWeight: '700', color: colors.text },
   kcalTarget: { fontSize: fontSize.md, color: colors.textSub },
+  kcalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bonus: { fontSize: fontSize.xs, color: colors.primary, fontWeight: '600' },
   percent: { fontSize: fontSize.xs, color: colors.textFaint, textAlign: 'right' },
 
   macro: { gap: spacing.xs },

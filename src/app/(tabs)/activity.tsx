@@ -14,7 +14,8 @@ import {
   type Activity,
   type HealthDaily,
 } from '@/db/repo/activities';
-import { addDays, calcAge, formatDayLabel, today } from '@/lib/day';
+import { useTodayKey } from '@/hooks/use-today';
+import { addDays, calcAge, formatDayLabel } from '@/lib/day';
 import { estimateBurn } from '@/lib/energy';
 import { ACTIVITY_TYPE_LABELS } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -29,7 +30,8 @@ export default function ActivityScreen() {
   const currentWeightKg = useAppStore((s) => s.currentWeightKg);
 
   const [tab, setTab] = useState<Tab>('record');
-  const [date] = useState(() => today(settings.dayStartHour));
+  // フォーカスのたびに取り直す。開いたまま日付をまたぐと前日に記録されてしまうため
+  const date = useTodayKey(settings.dayStartHour);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [history, setHistory] = useState<Activity[]>([]);
   const [health, setHealth] = useState<HealthDaily | null>(null);

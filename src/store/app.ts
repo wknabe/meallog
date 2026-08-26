@@ -6,6 +6,7 @@ import { create } from 'zustand';
 
 import { initDatabase } from '@/db';
 import { getProfile, getSettings, saveProfile, saveSettings, DEFAULT_SETTINGS } from '@/db/repo/settings';
+import { clearPhotoPaths } from '@/db/repo/meals';
 import { getLatestWeight } from '@/db/repo/weights';
 import { purgeExpiredPhotos } from '@/lib/photos';
 import type { Profile, Settings } from '@/lib/types';
@@ -46,8 +47,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // 保存期間を過ぎた画像を消す。失敗しても起動は止めない
     try {
-      purgeExpiredPhotos('meal', settings.mealPhotoRetentionDays);
-      purgeExpiredPhotos('label', settings.labelPhotoRetentionDays);
+      const removed = [
+        ...purgeExpiredPhotos('meal', settings.mealPhotoRetentionDays),
+        ...purgeExpiredPhotos('label', settings.labelPhotoRetentionDays),
+      ];
+      // 実ファイルを消したら参照も外す。残すと中身のない枠が表示され続ける
+      await clearPhotoPaths(removed);
     } catch (error) {
       console.warn('期限切れ画像の削除に失敗しました', error);
     }

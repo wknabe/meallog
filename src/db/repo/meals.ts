@@ -9,7 +9,10 @@ export type MealItemInput = {
   refId: number;
   /** 記録時点の名称。あとで元データの名前が変わっても記録は変えない */
   name: string;
-  /** 食品はグラム数、料理は人数分 */
+  /**
+   * 単位が指定されていればその個数（卵なら「1」）、単位がなければグラム数。
+   * 実重量は必ず grams 列を使うこと。
+   */
   quantity: number;
   /** 「1パック」のような表示用ラベル */
   unitLabel: string | null;
@@ -311,6 +314,24 @@ export async function countRecordedDays(from: DayKey, to: DayKey): Promise<numbe
     [from, to]
   );
   return row?.count ?? 0;
+}
+
+/**
+ * 保存期間を過ぎて実ファイルを消した写真の参照を、記録側からも外す。
+ * これをしないと、一覧に中身のない灰色の枠が残り続ける。
+ */
+export async function clearPhotoPaths(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  const db = getDatabase();
+  const placeholders = paths.map(() => '?').join(',');
+  await db.runAsync(
+    `UPDATE meals SET photo_path = NULL WHERE photo_path IN (${placeholders});`,
+    paths
+  );
+  await db.runAsync(
+    `UPDATE foods SET label_photo_path = NULL WHERE label_photo_path IN (${placeholders});`,
+    paths
+  );
 }
 
 /** 直近に食べた料理のID。献立提案で重複を避けるために使う */

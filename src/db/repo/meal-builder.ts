@@ -49,13 +49,19 @@ export function dishToMealItem(dish: Dish, servings: number): MealItemInput {
  * よく食べる食事のテンプレートから記録用の行を作る。
  * 参照先が削除されていた項目は静かに読み飛ばす。
  */
-export async function favoriteToMealItems(items: FavoriteItem[]): Promise<MealItemInput[]> {
+export async function favoriteToMealItems(
+  items: FavoriteItem[]
+): Promise<{ items: MealItemInput[]; skipped: number }> {
   const result: MealItemInput[] = [];
+  let skipped = 0;
 
   for (const item of items) {
     if (item.refType === 'food') {
       const food = await getFood(item.refId);
-      if (!food) continue;
+      if (!food) {
+        skipped++;
+        continue;
+      }
       // テンプレートは「1パック」のような表示ラベルしか持たないため、
       // 単位名から現在のグラム換算を引き直す（単位の定義を直したら次回から反映される）
       let unit: FoodUnit | null = null;
@@ -63,14 +69,23 @@ export async function favoriteToMealItems(items: FavoriteItem[]): Promise<MealIt
         const unitName = item.unitLabel.replace(/^[\d.]+/, '');
         const units = await listFoodUnits(food.id);
         unit = units.find((candidate) => candidate.name === unitName) ?? null;
+        if (!unit) {
+          // 単位が見つからないまま quantity をグラムとして扱うと
+          // 「卵1個」が1gになるなど栄養価が大きく狂うため、この項目は取り込まない
+          skipped++;
+          continue;
+        }
       }
       result.push(foodToMealItem(food, item.quantity, unit));
     } else {
       const dish = await getDish(item.refId);
-      if (!dish) continue;
+      if (!dish) {
+        skipped++;
+        continue;
+      }
       result.push(dishToMealItem(dish, item.quantity));
     }
   }
 
-  return result;
+  return { items: result, skipped };
 }

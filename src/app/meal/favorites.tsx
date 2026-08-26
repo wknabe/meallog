@@ -21,6 +21,8 @@ export default function FavoritesScreen() {
   const setSlot = useMealDraftStore((s) => s.setSlot);
   const [favorites, setFavorites] = useState<MealFavorite[]>([]);
   const [loading, setLoading] = useState(true);
+  // 連打で同じ内容が二重に追加されるのを防ぐ
+  const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
     setFavorites(await listFavorites());
@@ -32,15 +34,27 @@ export default function FavoritesScreen() {
   }, [reload]);
 
   async function apply(favorite: MealFavorite) {
-    const items = await favoriteToMealItems(favorite.items);
-    if (items.length === 0) {
-      Alert.alert('登録できませんでした', '参照している食品や料理が見つかりませんでした。');
-      return;
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { items, skipped } = await favoriteToMealItems(favorite.items);
+      if (items.length === 0) {
+        Alert.alert('登録できませんでした', '参照している食品や料理が見つかりませんでした。');
+        return;
+      }
+      if (skipped > 0) {
+        Alert.alert(
+          `${skipped}件を取り込めませんでした`,
+          '食品や単位の登録が変わっている可能性があります。残りの項目を追加しました。'
+        );
+      }
+      if (favorite.slot) setSlot(favorite.slot);
+      addItems(items);
+      void incrementFavoriteUseCount(favorite.id);
+      router.dismissTo('/meal/edit');
+    } finally {
+      setBusy(false);
     }
-    if (favorite.slot) setSlot(favorite.slot);
-    addItems(items);
-    void incrementFavoriteUseCount(favorite.id);
-    router.dismissTo('/meal/edit');
   }
 
   function confirmDelete(favorite: MealFavorite) {
@@ -75,7 +89,8 @@ export default function FavoritesScreen() {
           key={favorite.id}
           onPress={() => void apply(favorite)}
           onLongPress={() => confirmDelete(favorite)}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+          disabled={busy}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed, busy && styles.disabled]}>
           <View style={styles.flex}>
             <Text style={styles.name}>{favorite.name}</Text>
             <Text style={styles.sub}>
@@ -102,6 +117,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.5 },
   name: { fontSize: fontSize.md, color: colors.text, fontWeight: '600' },
   sub: { fontSize: fontSize.xs, color: colors.textFaint, marginTop: 2 },
   hint: { fontSize: fontSize.xs, color: colors.textFaint, textAlign: 'center' },

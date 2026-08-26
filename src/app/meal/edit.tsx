@@ -51,7 +51,7 @@ export default function EditMealScreen() {
       } else {
         await createMeal(input);
       }
-      draft.clear();
+      draft.commit();
       router.dismissAll();
       router.replace('/meals');
     } catch (error) {
@@ -73,8 +73,9 @@ export default function EditMealScreen() {
           const mealId = draft.mealId;
           if (mealId == null) return;
           await deleteMeal(mealId);
+          // 記録ごと消えるので、写真もこの場で削除してよい
           deletePhoto(draft.photoPath);
-          draft.clear();
+          draft.discard();
           router.dismissAll();
           router.replace('/meals');
         },
@@ -98,32 +99,49 @@ export default function EditMealScreen() {
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
     const path = await savePhoto(asset.uri, 'meal', { width: asset.width, height: asset.height });
-    // 差し替えたときは古い写真を残さない
-    deletePhoto(draft.photoPath);
-    draft.setPhoto(path);
+    // 古い写真は保存が成功するまで消さない（保存せずに戻ったときに画像だけ失わないため）
+    draft.replacePhoto(path);
   }
 
   function saveAsFavorite() {
     if (draft.items.length === 0) return;
-    Alert.alert('よく食べる食事に登録', 'この組み合わせをワンタップで記録できるようにしますか？', [
-      { text: 'キャンセル', style: 'cancel' },
-      {
-        text: '登録する',
-        onPress: async () => {
-          await createFavorite({
-            name: draft.items.map((item) => item.name).join('・').slice(0, 30),
-            slot: draft.slot,
-            items: draft.items.map((item) => ({
-              refType: item.refType,
-              refId: item.refId,
-              quantity: item.quantity,
-              unitLabel: item.unitLabel,
-            })),
-          });
-          Alert.alert('登録しました');
+    // 手入力の項目は食品マスタを参照していないため、テンプレートには入れられない
+    const savable = draft.items.filter((item) => item.refId > 0);
+    const excluded = draft.items.length - savable.length;
+
+    if (savable.length === 0) {
+      Alert.alert(
+        '登録できません',
+        '手入力した項目は「よく食べる食事」に登録できません。商品として登録すると次回から検索できます。'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'よく食べる食事に登録',
+      excluded > 0
+        ? `手入力の${excluded}件を除いた${savable.length}件を登録します。`
+        : 'この組み合わせをワンタップで記録できるようにしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '登録する',
+          onPress: async () => {
+            await createFavorite({
+              name: savable.map((item) => item.name).join('・').slice(0, 30),
+              slot: draft.slot,
+              items: savable.map((item) => ({
+                refType: item.refType,
+                refId: item.refId,
+                quantity: item.quantity,
+                unitLabel: item.unitLabel,
+              })),
+            });
+            Alert.alert('登録しました');
+          },
         },
-      },
-    ]);
+      ]
+    );
   }
 
   const uri = photoUri(draft.photoPath);
@@ -147,7 +165,7 @@ export default function EditMealScreen() {
               onChange={(value) => {
                 const next = fromDayKey(value);
                 next.setHours(eatenDate.getHours(), eatenDate.getMinutes(), 0, 0);
-                draft.setDateTime(logicalDate(next, settings.dayStartHour), next.toISOString());
+                draft.setEatenAt(next.toISOString());
               }}
             />
           </View>
@@ -155,9 +173,7 @@ export default function EditMealScreen() {
             <Text style={styles.label}>時刻</Text>
             <TimeField
               value={draft.eatenAt}
-              onChange={(value) =>
-                draft.setDateTime(logicalDate(new Date(value), settings.dayStartHour), value)
-              }
+              onChange={draft.setEatenAt}
             />
           </View>
         </View>
@@ -177,10 +193,7 @@ export default function EditMealScreen() {
               <Text style={styles.photoActionText}>写真を変更</Text>
             </Pressable>
             <Pressable
-              onPress={() => {
-                deletePhoto(draft.photoPath);
-                draft.setPhoto(null);
-              }}
+              onPress={() => draft.replacePhoto(null)}
               style={styles.photoAction}>
               <Text style={[styles.photoActionText, { color: colors.danger }]}>削除</Text>
             </Pressable>
