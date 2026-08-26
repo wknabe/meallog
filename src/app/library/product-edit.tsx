@@ -40,6 +40,13 @@ export default function ProductEditScreen() {
   const [showDetails, setShowDetails] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(editingId == null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  /** 保存が成功したときに消す写真。保存前に消すと、やめたときに画像だけ失う */
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+  /** 写真を保存しない設定のときの、その場限りのプレビュー */
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  /** まだ商品に結び付いていない写真。保存せず離脱したら消す */
+  const [uncommittedPhoto, setUncommittedPhoto] = useState<string | null>(null);
 
   // 編集のときは保存済みの値を読み込む
   useEffect(() => {
@@ -47,7 +54,12 @@ export default function ProductEditScreen() {
     let cancelled = false;
     getProductForEdit(editingId)
       .then((product) => {
-        if (cancelled || !product) return;
+        if (cancelled) return;
+        if (!product) {
+          setLoadFailed(true);
+          setLoaded(true);
+          return;
+        }
         setName(product.name);
         setMaker(product.maker ?? '');
         setBasis(product.basis);
@@ -58,15 +70,22 @@ export default function ProductEditScreen() {
           if (value != null) text[key] = String(value);
         }
         setValues(text);
-        setLoaded(true);
       })
-      .catch((error) => console.error('商品の読み込みに失敗しました', error));
+      .catch((error) => {
+        console.error('商品の読み込みに失敗しました', error);
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        // 失敗しても「読み込み中…」で固まらないようにする
+        if (!cancelled) setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [editingId]);
 
   async function attachPhoto(source: 'camera' | 'library') {
+    const keepPhoto = settings.labelPhotoRetentionDays >= 0;
     const permission =
       source === 'camera'
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -82,21 +101,21 @@ export default function ProductEditScreen() {
     if (result.canceled || !result.assets?.[0]) return;
 
     const asset = result.assets[0];
-    // 「保存しない」設定のときは端末に残さず、その場の確認だけに使う
-    if (settings.labelPhotoRetentionDays < 0) {
-      Alert.alert(
-        '成分表の画像は保存しない設定です',
-        '画像を見ながら値を入力してください。設定から保存期間を変えられます。'
-      );
-      return;
-    }
 
-    const path = await savePhoto(asset.uri, 'label', {
-      width: asset.width,
-      height: asset.height,
-    });
-    if (photoPath) deletePhoto(photoPath);
-    setPhotoPath(path);
+    if (keepPhoto) {
+      const path = await savePhoto(asset.uri, 'label', {
+        width: asset.width,
+        height: asset.height,
+      });
+      // 古い写真は保存が成功するまで消さない
+      if (photoPath) setPendingDeletes((previous) => [...previous, photoPath]);
+      if (uncommittedPhoto) deletePhoto(uncommittedPhoto);
+      setPhotoPath(path);
+      setUncommittedPhoto(path);
+    } else {
+      // 「保存しない」設定でも、入力中は画像を見られるようにする（端末には残さない）
+      setPreviewUri(asset.uri);
+    }
 
     // 読み取り処理は差し替え可能にしてある。いまは何も返さない
     const draft = await recognizeNutritionLabel(asset.uri);
@@ -142,6 +161,8 @@ export default function ProductEditScreen() {
       } else {
         await createProduct(input);
       }
+      // 保存できたので、差し替えで不要になった写真をここで消す
+      for (const path of pendingDeletes) deletePhoto(path);
       router.back();
     } catch (error) {
       console.error('商品の保存に失敗しました', error);
@@ -159,7 +180,21 @@ export default function ProductEditScreen() {
     );
   }
 
-  const uri = photoUri(photoPath);
+  if (loadFailed) {
+    return (
+      <Screen>
+        <Card>
+          <CardTitle>商品が見つかりません</CardTitle>
+          <Text style={styles.note}>
+            削除された可能性があります。前の画面に戻ってください。
+          </Text>
+          <Button title="戻る" variant="secondary" onPress={() => router.back()} />
+        </Card>
+      </Screen>
+    );
+  }
+
+  const uri = previewUri ?? photoUri(photoPath);
   // 写真があれば「撮影」は済み。読み取りは未実装なので確認から手入力になる
   const currentStep = uri == null ? 0 : canSave ? 2 : 1;
 
@@ -196,8 +231,10 @@ export default function ProductEditScreen() {
               </Pressable>
               <Pressable
                 onPress={() => {
-                  deletePhoto(photoPath);
+                  // 保存するまでファイルは消さない
+                  if (photoPath) setPendingDeletes((previous) => [...previous, photoPath]);
                   setPhotoPath(null);
+                  setPreviewUri(null);
                 }}
                 style={styles.photoAction}>
                 <Text style={[styles.photoActionText, { color: colors.danger }]}>削除</Text>
@@ -215,6 +252,11 @@ export default function ProductEditScreen() {
               <Text style={styles.photoButtonText}>写真を選ぶ</Text>
             </Pressable>
           </View>
+        )}
+        {previewUri != null && (
+          <Text style={styles.note}>
+            成分表の画像を保存しない設定のため、この画像は入力中だけ表示されます。
+          </Text>
         )}
         {!OCR_AVAILABLE && (
           <Text style={styles.note}>
@@ -245,7 +287,22 @@ export default function ProductEditScreen() {
               { value: 'serving', label: '1食あたり' },
             ]}
             value={basis}
-            onChange={setBasis}
+            onChange={(value) => {
+              // 入力済みの数値が別の基準として解釈されてしまうため、先に確認する
+              const hasValues = Object.values(values).some((text) => text.trim() !== '');
+              if (!hasValues || value === basis) {
+                setBasis(value);
+                return;
+              }
+              Alert.alert(
+                '基準を切り替えますか？',
+                '入力済みの数値は、切り替え後の基準の値として扱われます。パッケージの表記と合っているか確認してください。',
+                [
+                  { text: 'キャンセル', style: 'cancel' },
+                  { text: '切り替える', onPress: () => setBasis(value) },
+                ]
+              );
+            }}
           />
         </Field>
         {basis === 'serving' && (

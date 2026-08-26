@@ -66,6 +66,10 @@ for (const file of files) {
     for (const taste of dish.ta ?? []) {
       if (!TASTES.includes(taste)) errors.push(`${where}: ta が不正 (${taste})`);
     }
+    // dish_tastes は (dish_id, taste) が主キーなので、重複があると投入時に失敗する
+    if (new Set(dish.ta ?? []).size !== (dish.ta ?? []).length) {
+      errors.push(`${where}: ta に重複があります`);
+    }
     if (!Array.isArray(dish.ig) || dish.ig.length === 0) {
       errors.push(`${where}: 材料がありません`);
       continue;

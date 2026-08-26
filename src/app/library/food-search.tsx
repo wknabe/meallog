@@ -38,7 +38,7 @@ export default function DishFoodSearchScreen() {
     addIngredient({
       foodId: food.id,
       foodName: food.name,
-      grams: 100,
+      grams: '100',
       // 調味料類（食品群17）と油脂類（14）、砂糖類（03）は既定で調味料扱いにする
       isSeasoning: ['03', '14', '17'].includes(food.groupCode ?? ''),
       per100g: food.per100g,

@@ -5,7 +5,13 @@
 import { create } from 'zustand';
 
 import { initDatabase } from '@/db';
-import { getProfile, getSettings, saveProfile, saveSettings, DEFAULT_SETTINGS } from '@/db/repo/settings';
+import {
+  getProfile,
+  getSettings,
+  saveProfile,
+  saveSettings,
+  DEFAULT_SETTINGS,
+} from '@/db/repo/settings';
 import { clearPhotoPaths } from '@/db/repo/meals';
 import { getLatestWeight } from '@/db/repo/weights';
 import { purgeExpiredPhotos } from '@/lib/photos';
@@ -14,6 +20,8 @@ import type { Profile, Settings } from '@/lib/types';
 type AppState = {
   /** DBの初期化と読み込みが終わったか */
   ready: boolean;
+  /** 起動に失敗したときの内容。再試行の案内を出すために持つ */
+  bootError: string | null;
   /** null ならオンボーディング未完了 */
   profile: Profile | null;
   settings: Settings;
@@ -27,34 +35,49 @@ type AppState = {
 
 export const useAppStore = create<AppState>((set, get) => ({
   ready: false,
+  bootError: null,
   profile: null,
   settings: DEFAULT_SETTINGS,
   currentWeightKg: null,
 
+  /**
+   * DBを開き、プロフィールと設定を読み込む。
+   * 失敗しても例外を投げず bootError に残し、画面から再試行できるようにする
+   * （同梱データの投入で1度失敗しただけでアプリが真っ白のまま使えなくなるのを防ぐ）。
+   */
   bootstrap: async () => {
-    await initDatabase();
-    const [profile, settings, weight] = await Promise.all([
-      getProfile(),
-      getSettings(),
-      getLatestWeight(),
-    ]);
-    set({
-      ready: true,
-      profile,
-      settings,
-      currentWeightKg: weight?.weightKg ?? null,
-    });
-
-    // 保存期間を過ぎた画像を消す。失敗しても起動は止めない
+    set({ bootError: null });
     try {
-      const removed = [
-        ...purgeExpiredPhotos('meal', settings.mealPhotoRetentionDays),
-        ...purgeExpiredPhotos('label', settings.labelPhotoRetentionDays),
-      ];
-      // 実ファイルを消したら参照も外す。残すと中身のない枠が表示され続ける
-      await clearPhotoPaths(removed);
+      await initDatabase();
+      const [profile, settings, weight] = await Promise.all([
+        getProfile(),
+        getSettings(),
+        getLatestWeight(),
+      ]);
+      set({
+        ready: true,
+        profile,
+        settings,
+        currentWeightKg: weight?.weightKg ?? null,
+      });
+
+      // 保存期間を過ぎた画像を消す。失敗しても起動は止めない
+      try {
+        const removed = [
+          ...purgeExpiredPhotos('meal', settings.mealPhotoRetentionDays),
+          ...purgeExpiredPhotos('label', settings.labelPhotoRetentionDays),
+        ];
+        // 実ファイルを消したら参照も外す。残すと中身のない枠が表示され続ける
+        await clearPhotoPaths(removed);
+      } catch (error) {
+        console.warn('期限切れ画像の削除に失敗しました', error);
+      }
     } catch (error) {
-      console.warn('期限切れ画像の削除に失敗しました', error);
+      console.error('起動処理に失敗しました', error);
+      set({
+        ready: false,
+        bootError: error instanceof Error ? error.message : String(error),
+      });
     }
   },
 

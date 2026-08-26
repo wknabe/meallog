@@ -27,7 +27,7 @@ import {
   type Taste,
   type Volume,
 } from '@/lib/types';
-import { draftDishNutrition, useDishDraftStore } from '@/store/dish-draft';
+import { draftDishNutrition, toGramsValue, useDishDraftStore } from '@/store/dish-draft';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
 const CATEGORIES: DishCategory[] = ['staple', 'main', 'side', 'soup', 'other'];
@@ -41,9 +41,12 @@ export default function DishEditScreen() {
   const draft = useDishDraftStore();
   const [saving, setSaving] = useState(false);
 
-  const servings = Number(draft.servings) || 1;
+  const servingsValue = Number(draft.servings);
+  const servingsValid = Number.isFinite(servingsValue) && servingsValue > 0;
+  const servings = servingsValid ? servingsValue : 1;
   const nutrition = draftDishNutrition(draft.ingredients, servings);
-  const canSave = draft.name.trim() !== '' && draft.ingredients.length > 0;
+  const hasGrams = draft.ingredients.every((ingredient) => toGramsValue(ingredient.grams) > 0);
+  const canSave = draft.name.trim() !== '' && draft.ingredients.length > 0 && servingsValid && hasGrams;
 
   async function handleSave() {
     if (saving || !canSave) return;
@@ -57,11 +60,14 @@ export default function DishEditScreen() {
         volume: draft.volume,
         tastes: draft.tastes,
         servings,
-        cookMinutes: draft.cookMinutes.trim() === '' ? null : Number(draft.cookMinutes),
+        // 「.」だけ入力された場合などに NaN を保存しないようにする
+        cookMinutes: Number.isFinite(Number(draft.cookMinutes)) && draft.cookMinutes.trim() !== ''
+          ? Number(draft.cookMinutes)
+          : null,
         steps: draft.steps.trim() === '' ? null : draft.steps.trim(),
         ingredients: draft.ingredients.map((ingredient) => ({
           foodId: ingredient.foodId,
-          grams: ingredient.grams,
+          grams: toGramsValue(ingredient.grams),
           isSeasoning: ingredient.isSeasoning,
         })),
       };
@@ -119,7 +125,13 @@ export default function DishEditScreen() {
 
         <View style={styles.row}>
           <View style={styles.col}>
-            <Field label="何人前ぶんの分量か" hint="材料の合計がこの人数分になります">
+            <Field
+              label="何人前ぶんの分量か"
+              hint={
+                servingsValid
+                  ? '材料の合計がこの人数分になります'
+                  : '1以上の数値を入力してください'
+              }>
               <NumberInput
                 value={draft.servings}
                 onChangeText={(value) => draft.patch({ servings: value })}
@@ -227,10 +239,8 @@ export default function DishEditScreen() {
                 </View>
                 <View style={styles.gramsBox}>
                   <NumberInput
-                    value={String(ingredient.grams)}
-                    onChangeText={(text) =>
-                      draft.updateIngredient(ingredient.key, { grams: Number(text) || 0 })
-                    }
+                    value={ingredient.grams}
+                    onChangeText={(text) => draft.updateIngredient(ingredient.key, { grams: text })}
                     unit="g"
                   />
                 </View>
@@ -292,6 +302,9 @@ export default function DishEditScreen() {
         onPress={handleSave}
         disabled={saving || !canSave}
       />
+      {!canSave && draft.ingredients.length > 0 && !hasGrams && (
+        <Text style={styles.hint}>材料のグラム数を入力してください。</Text>
+      )}
       {draft.dishId != null && (
         <Button title="この料理を削除" variant="ghost" onPress={handleDelete} />
       )}

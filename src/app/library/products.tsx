@@ -5,7 +5,12 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 
 import { Button } from '@/components/ui/controls';
 import { EmptyState, Screen } from '@/components/ui/layout';
-import { deleteProduct, listProducts, type ProductSummary } from '@/db/repo/products';
+import {
+  countProductReferences,
+  deleteProduct,
+  listProducts,
+  type ProductSummary,
+} from '@/db/repo/products';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
 /** 自分で登録した商品の一覧 */
@@ -24,15 +29,30 @@ export default function ProductsScreen() {
     }, [reload])
   );
 
-  function confirmDelete(product: ProductSummary) {
+  async function confirmDelete(product: ProductSummary) {
+    // 料理の材料などから参照されていると削除できないため、先に確認する
+    const references = await countProductReferences(product.id);
+    if (references > 0) {
+      Alert.alert(
+        '削除できません',
+        `この商品は料理の材料や買い物リストで${references}件使われています。先にそちらから外してください。`
+      );
+      return;
+    }
+
     Alert.alert('この商品を削除しますか？', product.name, [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',
         style: 'destructive',
         onPress: async () => {
-          await deleteProduct(product.id);
-          await reload();
+          try {
+            await deleteProduct(product.id);
+            await reload();
+          } catch (error) {
+            console.error('商品の削除に失敗しました', error);
+            Alert.alert('削除できませんでした', 'この商品はどこかで使われている可能性があります。');
+          }
         },
       },
     ]);
@@ -68,7 +88,7 @@ export default function ProductsScreen() {
             onPress={() =>
               router.push({ pathname: '/library/product-edit', params: { id: product.id } })
             }
-            onLongPress={() => confirmDelete(product)}
+            onLongPress={() => void confirmDelete(product)}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <View style={styles.flex}>
               <Text style={styles.name}>{product.name}</Text>

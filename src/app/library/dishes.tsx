@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button, Chip, ChipGroup, SegmentedControl } from '@/components/ui/controls';
@@ -34,7 +34,14 @@ export default function DishesScreen() {
   const [effort, setEffort] = useState<Effort | null>(null);
   const [volume, setVolume] = useState<Volume | null>(null);
   const [keyword, setKeyword] = useState('');
+  // 1文字ごとに全件取り直すと重いので、打ち終わりを待ってから検索する
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [dishes, setDishes] = useState<Dish[]>([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKeyword(keyword), 250);
+    return () => clearTimeout(timer);
+  }, [keyword]);
 
   const reload = useCallback(async () => {
     setDishes(
@@ -43,11 +50,11 @@ export default function DishesScreen() {
         cuisine: cuisine ?? undefined,
         effort: effort ?? undefined,
         volume: volume ?? undefined,
-        keyword,
+        keyword: debouncedKeyword,
         limit: 200,
       })
     );
-  }, [category, cuisine, effort, volume, keyword]);
+  }, [category, cuisine, effort, volume, debouncedKeyword]);
 
   useFocusEffect(
     useCallback(() => {
@@ -148,7 +155,7 @@ export default function DishesScreen() {
                     dish.effort ? EFFORT_LABELS[dish.effort].replace('（15分以内）', '') : null,
                     dish.volume ? VOLUME_LABELS[dish.volume] : null,
                     dish.cookMinutes != null ? `${dish.cookMinutes}分` : null,
-                    dish.source === 'user' ? '自分で追加' : null,
+                    dish.source === 'user' ? '自分で追加' : dish.isCustomized ? '編集済み' : null,
                   ]
                     .filter(Boolean)
                     .join(' ・ ')}

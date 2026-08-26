@@ -324,9 +324,23 @@ CREATE TABLE app_meta (
 `;
 
 /**
+ * 同梱の料理データを「名前」で同一視していると、ユーザーが改名しただけで
+ * 次の更新時に重複して入ってしまう。名前とは別に、変わらない識別子を持たせる。
+ * is_customized は、プリセットを編集したかどうかの目印。
+ */
+const V3 = `
+ALTER TABLE dishes ADD COLUMN seed_key TEXT;
+ALTER TABLE dishes ADD COLUMN is_customized INTEGER NOT NULL DEFAULT 0;
+CREATE UNIQUE INDEX idx_dishes_seed_key ON dishes(seed_key) WHERE seed_key IS NOT NULL;
+
+-- すでに投入済みの料理は、当時の名前をそのまま識別子として引き継ぐ
+UPDATE dishes SET seed_key = name WHERE source = 'preset';
+`;
+
+/**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1, V2];
+export const MIGRATIONS: string[] = [V1, V2, V3];
 
 export const LATEST_VERSION = MIGRATIONS.length;

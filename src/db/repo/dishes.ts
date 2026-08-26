@@ -1,6 +1,7 @@
 /** 料理マスタの読み書き。材料構成から栄養価を毎回計算する */
 import { getDatabase } from '@/db';
 import { NUTRIENT_KEYS, type Nutrients } from '@/db/nutrients';
+import { rememberRemovedSeedKey } from '@/db/seed/dishes';
 import { nutrientsForDish, type DishLike } from '@/lib/nutrition';
 import type { Cuisine, DishCategory, Effort, Taste, Volume } from '@/lib/types';
 
@@ -29,6 +30,10 @@ export type Dish = {
   steps: string | null;
   photoPath: string | null;
   source: 'preset' | 'user';
+  /** 同梱データ由来の識別子。ユーザーが作った料理は null */
+  seedKey: string | null;
+  /** プリセットを編集したか */
+  isCustomized: boolean;
   isFavorite: boolean;
   useCount: number;
   ingredients: DishIngredient[];
@@ -46,6 +51,8 @@ type DishRow = {
   steps: string | null;
   photo_path: string | null;
   source: string;
+  seed_key: string | null;
+  is_customized: number;
   is_favorite: number;
   use_count: number;
 };
@@ -117,6 +124,8 @@ async function attachDetails(rows: DishRow[]): Promise<Dish[]> {
     steps: row.steps,
     photoPath: row.photo_path,
     source: row.source as 'preset' | 'user',
+    seedKey: row.seed_key,
+    isCustomized: row.is_customized === 1,
     isFavorite: row.is_favorite === 1,
     useCount: row.use_count,
     ingredients: ingredientsByDish.get(row.id) ?? [],
@@ -235,16 +244,37 @@ async function writeDishDetails(
 ): Promise<void> {
   // 味タグと材料は差分ではなく毎回入れ替える。並び順の管理が単純になるため
   await db.runAsync('DELETE FROM dish_tastes WHERE dish_id = ?;', [dishId]);
-  for (const taste of input.tastes) {
-    await db.runAsync('INSERT INTO dish_tastes (dish_id, taste) VALUES (?, ?);', [dishId, taste]);
+  for (const taste of new Set(input.tastes)) {
+    await db.runAsync('INSERT OR IGNORE INTO dish_tastes (dish_id, taste) VALUES (?, ?);', [
+      dishId,
+      taste,
+    ]);
   }
+
+  // 「1パック」などの表示単位は編集画面では扱わないため、入れ替え前に控えて引き継ぐ
+  const previous = await db.getAllAsync<{
+    food_id: number;
+    display_qty: number | null;
+    display_unit: string | null;
+  }>('SELECT food_id, display_qty, display_unit FROM dish_ingredients WHERE dish_id = ?;', [dishId]);
+  const displayByFood = new Map(previous.map((row) => [row.food_id, row]));
 
   await db.runAsync('DELETE FROM dish_ingredients WHERE dish_id = ?;', [dishId]);
   for (const [index, ingredient] of input.ingredients.entries()) {
+    const display = displayByFood.get(ingredient.foodId);
     await db.runAsync(
-      `INSERT INTO dish_ingredients (dish_id, food_id, grams, is_seasoning, sort_order)
-       VALUES (?, ?, ?, ?, ?);`,
-      [dishId, ingredient.foodId, ingredient.grams, ingredient.isSeasoning ? 1 : 0, index]
+      `INSERT INTO dish_ingredients (dish_id, food_id, grams, display_qty, display_unit,
+                                     is_seasoning, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      [
+        dishId,
+        ingredient.foodId,
+        ingredient.grams,
+        display?.display_qty ?? null,
+        display?.display_unit ?? null,
+        ingredient.isSeasoning ? 1 : 0,
+        index,
+      ]
     );
   }
 }
@@ -285,7 +315,10 @@ export async function updateDish(id: number, input: DishInput): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `UPDATE dishes SET name = ?, kana = ?, category = ?, cuisine = ?, effort = ?, volume = ?,
-                         servings = ?, cook_minutes = ?, steps = ?, updated_at = ?
+                         servings = ?, cook_minutes = ?, steps = ?,
+                         -- プリセットを編集したことを残す。一覧で「編集済み」と出すために使う
+                         is_customized = CASE WHEN source = 'preset' THEN 1 ELSE is_customized END,
+                         updated_at = ?
        WHERE id = ?;`,
       [
         input.name,
@@ -307,8 +340,14 @@ export async function updateDish(id: number, input: DishInput): Promise<void> {
 
 export async function deleteDish(id: number): Promise<void> {
   const db = getDatabase();
+  const row = await db.getFirstAsync<{ seed_key: string | null }>(
+    'SELECT seed_key FROM dishes WHERE id = ?;',
+    [id]
+  );
   // 材料と味タグは ON DELETE CASCADE で一緒に消える
   await db.runAsync('DELETE FROM dishes WHERE id = ?;', [id]);
+  // 同梱データ由来の料理は、次の更新で勝手に復活しないよう記録しておく
+  if (row?.seed_key) await rememberRemovedSeedKey(db, row.seed_key);
 }
 
 export async function toggleDishFavorite(id: number, isFavorite: boolean): Promise<void> {

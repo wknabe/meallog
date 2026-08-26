@@ -8,6 +8,7 @@
 import { getDatabase } from '@/db';
 import { NUTRIENT_KEYS, type Nutrients } from '@/db/nutrients';
 import type { LabelBasis } from '@/lib/ocr';
+import { deletePhoto } from '@/lib/photos';
 
 export type ProductInput = {
   name: string;
@@ -30,7 +31,11 @@ export type ProductInput = {
 export function toPer100g(input: ProductInput): Partial<Nutrients> {
   if (input.basis === '100g') return input.values;
   const grams = input.servingGrams ?? 0;
-  if (grams <= 0) return input.values;
+  if (grams <= 0) {
+    // 1食あたりの値を100gあたりとして保存すると、以後の記録がすべてずれる。
+    // 呼び出し側で内容量の入力を必須にしているので、ここに来たら不具合として止める
+    throw new Error('1食あたりの表記には内容量（g）が必要です');
+  }
   const ratio = 100 / grams;
   const result: Partial<Nutrients> = {};
   for (const key of NUTRIENT_KEYS) {
@@ -100,29 +105,71 @@ export async function updateProduct(id: number, input: ProductInput): Promise<vo
   const per100g = toPer100g(input);
   const { columns, values } = nutrientColumns(per100g);
 
-  await db.runAsync(
-    `UPDATE foods SET
-       name = ?, kana = ?, maker = ?, label_basis = ?, label_serving_g = ?, label_photo_path = ?,
-       ${columns.map((column) => `${column} = ?`).join(', ')},
-       updated_at = ?
-     WHERE id = ?;`,
-    [
-      input.name,
-      input.name,
-      input.maker,
-      input.basis,
-      input.servingGrams,
-      input.labelPhotoPath,
-      ...values,
-      new Date().toISOString(),
-      id,
-    ]
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE foods SET
+         name = ?, kana = ?, maker = ?, label_basis = ?, label_serving_g = ?, label_photo_path = ?,
+         ${columns.map((column) => `${column} = ?`).join(', ')},
+         updated_at = ?
+       WHERE id = ?;`,
+      [
+        input.name,
+        input.name,
+        input.maker,
+        input.basis,
+        input.servingGrams,
+        input.labelPhotoPath,
+        ...values,
+        new Date().toISOString(),
+        id,
+      ]
+    );
+
+    // 100gあたりから1食あたりに変えた場合、常用単位がまだ無ければ作る。
+    // 既にあるものは触らない（ユーザーが調整している可能性があるため）
+    if (input.registerServingUnit && input.servingGrams != null && input.servingGrams > 0) {
+      const existing = await db.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) AS count FROM food_units WHERE food_id = ?;',
+        [id]
+      );
+      if ((existing?.count ?? 0) === 0) {
+        await db.runAsync(
+          `INSERT INTO food_units (food_id, name, grams, is_purchase_unit, sort_order)
+           VALUES (?, '個', ?, 1, 0);`,
+          [id, input.servingGrams]
+        );
+      }
+    }
+  });
 }
 
+/** この商品が料理の材料や買い物リストで使われている件数 */
+export async function countProductReferences(id: number): Promise<number> {
+  const db = getDatabase();
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT
+       (SELECT COUNT(*) FROM dish_ingredients WHERE food_id = ?)
+     + (SELECT COUNT(*) FROM shopping_items WHERE food_id = ?)
+     + (SELECT COUNT(*) FROM pantry WHERE food_id = ?) AS count;`,
+    [id, id, id]
+  );
+  return row?.count ?? 0;
+}
+
+/**
+ * 商品を削除する。
+ * 料理の材料などから参照されている場合は外部キー制約で失敗するため、
+ * 先に参照を数えて呼び出し側が案内できるようにしている。
+ */
 export async function deleteProduct(id: number): Promise<void> {
   const db = getDatabase();
+  const row = await db.getFirstAsync<{ label_photo_path: string | null }>(
+    "SELECT label_photo_path FROM foods WHERE id = ? AND source = 'product';",
+    [id]
+  );
   await db.runAsync("DELETE FROM foods WHERE id = ? AND source = 'product';", [id]);
+  // 参照が残っていない写真は一緒に片付ける
+  if (row?.label_photo_path) deletePhoto(row.label_photo_path);
 }
 
 export type ProductSummary = {
@@ -196,7 +243,8 @@ export async function getProductForEdit(id: number): Promise<ProductInput | null
   const values: Partial<Nutrients> = {};
   for (const key of NUTRIENT_KEYS) {
     const value = Number(row[key] ?? 0);
-    if (value !== 0) values[key] = Math.round(value * ratio * 100) / 100;
+    // 1食が大きい商品の微量成分が丸めで消えないよう、4桁まで残す
+    if (value !== 0) values[key] = Math.round(value * ratio * 10000) / 10000;
   }
 
   return {

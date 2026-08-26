@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +42,13 @@ export default function FoodSearchScreen() {
     }, 250);
     return () => clearTimeout(timer);
   }, [keyword, mode, run]);
+
+  // 商品を登録して戻ってきたときに、結果へ反映されるようにする
+  useFocusEffect(
+    useCallback(() => {
+      void run(keyword, mode);
+    }, [run, keyword, mode])
+  );
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>

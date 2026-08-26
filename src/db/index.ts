@@ -19,7 +19,7 @@ let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
  */
 export function initDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (initPromise) return initPromise;
-  initPromise = (async () => {
+  const attempt = (async () => {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     // WALモード: 書き込み中でも読み取りが止まらないため、記録しながら画面を描画しても引っかからない
     await db.execAsync('PRAGMA journal_mode = WAL;');
@@ -34,6 +34,12 @@ export function initDatabase(): Promise<SQLite.SQLiteDatabase> {
     if (dishes > 0) console.log(`料理データを投入しました: ${dishes}件`);
     return db;
   })();
+
+  // 失敗したPromiseを持ち続けると、再試行しても同じ失敗が返ってしまう
+  initPromise = attempt.catch((error) => {
+    initPromise = null;
+    throw error;
+  });
   return initPromise;
 }
 
