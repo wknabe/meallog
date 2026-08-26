@@ -32,6 +32,14 @@
       "expo-sqlite",
       "@react-native-community/datetimepicker",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "食事や成分表の写真を選ぶために、写真へのアクセスを許可してください。",
+          "cameraPermission": "食事や成分表を撮影するために、カメラへのアクセスを許可してください。",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#2E7D5B",

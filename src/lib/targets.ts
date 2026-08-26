@@ -4,8 +4,8 @@
  * 基礎代謝は国立健康・栄養研究所の式（Ganpule式）を使う。
  * ハリス・ベネディクト式は欧米人のデータが基になっており、日本人では過大に出やすいため。
  */
-import { addDays, calcAge, differenceInDays, toDayKey, type DayKey } from './day';
-import type { ActivityLevel, Gender, MacroTargets } from './types';
+import { addDays, calcAge, differenceInDays, toDayKey, type DayKey } from './day.ts';
+import type { ActivityLevel, Gender, MacroTargets } from './types.ts';
 
 /** 体脂肪1kgあたりのエネルギー量（kcal） */
 export const KCAL_PER_KG_FAT = 7200;

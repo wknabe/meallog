@@ -56,6 +56,53 @@ export function DateField({
   );
 }
 
+/** 時刻を選ぶ入力欄 */
+export function TimeField({
+  value,
+  onChange,
+}: {
+  /** ISO8601の日時。時刻部分だけを編集する */
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = new Date(value);
+
+  return (
+    <View>
+      <Pressable
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [styles.field, pressed && styles.pressed]}>
+        <Text style={styles.value}>
+          {current.getHours()}:{String(current.getMinutes()).padStart(2, '0')}
+        </Text>
+      </Pressable>
+
+      {open && (
+        <DateTimePicker
+          value={current}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event, selected) => {
+            if (Platform.OS === 'android') setOpen(false);
+            if (event.type === 'set' && selected) {
+              const next = new Date(current);
+              next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+              onChange(next.toISOString());
+            }
+          }}
+        />
+      )}
+
+      {open && Platform.OS === 'ios' && (
+        <Pressable onPress={() => setOpen(false)} style={styles.done}>
+          <Text style={styles.doneText}>完了</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   field: {
     backgroundColor: colors.surface,

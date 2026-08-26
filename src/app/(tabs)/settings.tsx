@@ -14,6 +14,7 @@ import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { resetDatabase } from '@/db';
 import { countFoods } from '@/db/repo/foods';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
+import { formatBytes, photoStorageBytes } from '@/lib/photos';
 import { calcAge } from '@/lib/day';
 import { ACTIVITY_LEVELS, calcTargets } from '@/lib/targets';
 import type { ActivityLevel, AdjustmentDistribution, BurnSource, Gender, Profile } from '@/lib/types';
@@ -32,9 +33,15 @@ export default function SettingsScreen() {
     profile?.targetWeightKg != null ? String(profile.targetWeightKg) : ''
   );
   const [foodCount, setFoodCount] = useState<number | null>(null);
+  const [photoBytes, setPhotoBytes] = useState<number | null>(null);
 
   useEffect(() => {
     countFoods().then(setFoodCount).catch(() => setFoodCount(null));
+    try {
+      setPhotoBytes(photoStorageBytes());
+    } catch {
+      setPhotoBytes(null);
+    }
   }, []);
 
   if (!profile) return null;
@@ -370,6 +377,11 @@ export default function SettingsScreen() {
             onChange={(value) => updateSettings({ mealPhotoRetentionDays: value })}
           />
         </Field>
+
+        <Row
+          label="写真が使っている容量"
+          value={photoBytes != null ? formatBytes(photoBytes) : '—'}
+        />
 
         <Field label="成分表の写真">
           <SegmentedControl<number>

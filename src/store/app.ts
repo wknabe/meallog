@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { initDatabase } from '@/db';
 import { getProfile, getSettings, saveProfile, saveSettings, DEFAULT_SETTINGS } from '@/db/repo/settings';
 import { getLatestWeight } from '@/db/repo/weights';
+import { purgeExpiredPhotos } from '@/lib/photos';
 import type { Profile, Settings } from '@/lib/types';
 
 type AppState = {
@@ -42,6 +43,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       settings,
       currentWeightKg: weight?.weightKg ?? null,
     });
+
+    // 保存期間を過ぎた画像を消す。失敗しても起動は止めない
+    try {
+      purgeExpiredPhotos('meal', settings.mealPhotoRetentionDays);
+      purgeExpiredPhotos('label', settings.labelPhotoRetentionDays);
+    } catch (error) {
+      console.warn('期限切れ画像の削除に失敗しました', error);
+    }
   },
 
   refreshWeight: async () => {

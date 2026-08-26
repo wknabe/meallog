@@ -1,6 +1,7 @@
 /** アプリ全体で使う型と、選択肢のラベル定義 */
 
-import type { Nutrients } from '@/db/nutrients';
+// テストを素のNodeで動かせるよう、lib配下は相対パスで参照する
+import type { Nutrients } from '../db/nutrients.ts';
 
 // ── プロフィール ────────────────────────────────
 export type Gender = 'male' | 'female';

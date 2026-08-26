@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { stackScreenOptions } from '@/components/ui/stack-screen-options';
 import { useAppStore } from '@/store/app';
 import { colors } from '@/theme/colors';
 
@@ -38,6 +39,12 @@ export default function RootLayout() {
           }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
+          <Stack.Screen name="meal" />
+          <Stack.Screen name="workout" />
+          <Stack.Screen
+            name="weight"
+            options={{ ...stackScreenOptions, title: '体重' }}
+          />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

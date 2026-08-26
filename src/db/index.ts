@@ -4,8 +4,8 @@
  */
 import * as SQLite from 'expo-sqlite';
 
-import { LATEST_VERSION, MIGRATIONS } from './schema';
-import { seedStandardFoods } from './seed/foods';
+import { LATEST_VERSION, MIGRATIONS } from './schema.ts';
+import { seedStandardFoods } from './seed/foods.ts';
 
 const DB_NAME = 'meallog.db';
 
