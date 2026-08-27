@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  dailyStepsBurn,
   estimateExerciseKcal,
   estimateStepsKcal,
   exerciseBonus,
@@ -83,5 +84,43 @@ describe('exerciseBonus', () => {
 
   it('マイナスは0として扱う', () => {
     assert.equal(exerciseBonus(-100, { addExerciseToTarget: true, exerciseAddRatio: 100 }), 0);
+  });
+});
+
+describe('dailyStepsBurn', () => {
+  const base = {
+    enabled: true,
+    healthSteps: null,
+    manualSteps: 10_000,
+    recordedWalkSteps: 0,
+    weightKg: 70,
+    heightCm: 170,
+  };
+
+  it('手で入れた歩数ぶんを返す', () => {
+    assert.ok(dailyStepsBurn(base) > 0);
+  });
+
+  it('設定がオフなら0', () => {
+    assert.equal(dailyStepsBurn({ ...base, enabled: false }), 0);
+  });
+
+  it('ヘルスアプリから取れている日は足さない', () => {
+    assert.equal(dailyStepsBurn({ ...base, healthSteps: 9000 }), 0);
+  });
+
+  it('運動として記録済みの歩数は差し引く', () => {
+    const all = dailyStepsBurn(base);
+    const half = dailyStepsBurn({ ...base, recordedWalkSteps: 5000 });
+    assert.ok(Math.abs(all / 2 - half) < 0.001);
+  });
+
+  it('記録済みが1日の歩数を上回ってもマイナスにしない', () => {
+    assert.equal(dailyStepsBurn({ ...base, recordedWalkSteps: 20_000 }), 0);
+  });
+
+  it('歩数も体重も無ければ0', () => {
+    assert.equal(dailyStepsBurn({ ...base, manualSteps: null }), 0);
+    assert.equal(dailyStepsBurn({ ...base, weightKg: null }), 0);
   });
 });

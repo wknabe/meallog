@@ -10,7 +10,10 @@ import {
   effectiveSteps,
   getActivityKcal,
   getHealthDaily,
+  getWalkSteps,
   listDailyActivityKcal,
+  listDailyWalkSteps,
+  listHealthDaily,
   type HealthDaily,
 } from '@/db/repo/activities';
 import { getDailyTotals, listDailyTotals, type DailyTotals } from '@/db/repo/meals';
@@ -18,7 +21,13 @@ import { getWeight } from '@/db/repo/weights';
 import { useTodayKey } from '@/hooks/use-today';
 import { addDays, calcAge, formatDayLabel } from '@/lib/day';
 import { adjustedTarget, computeAdjustment, type AdjustmentResult } from '@/lib/adjustment';
-import { estimateBurn, exerciseBonus, resolveBurn, type EstimatedBurn } from '@/lib/energy';
+import {
+  dailyStepsBurn,
+  estimateBurn,
+  exerciseBonus,
+  resolveBurn,
+  type EstimatedBurn,
+} from '@/lib/energy';
 import { calcBmi } from '@/lib/targets';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
@@ -32,6 +41,7 @@ export default function HomeScreen() {
 
   const [totals, setTotals] = useState<DailyTotals | null>(null);
   const [exerciseKcal, setExerciseKcal] = useState(0);
+  const [walkSteps, setWalkSteps] = useState(0);
   const [health, setHealth] = useState<HealthDaily | null>(null);
   const [todayWeight, setTodayWeight] = useState<number | null>(null);
   const [bodyFat, setBodyFat] = useState<number | null>(null);
@@ -40,6 +50,7 @@ export default function HomeScreen() {
   const day = useTodayKey(settings.dayStartHour);
   // フックの依存に使うため、プロフィールが無い場合も値を取り出しておく
   const profileTargetKcal = profile?.targetKcal ?? 0;
+  const profileHeightCm = profile?.heightCm ?? 0;
 
   useFocusEffect(
     useCallback(() => {
@@ -47,27 +58,53 @@ export default function HomeScreen() {
       async function load() {
         // 食べ過ぎ調整は今日より前の記録だけを見る
         const historyFrom = addDays(day, -settings.adjustmentDays);
-        const [dailyTotals, kcal, healthRow, weightRow, history, historyExercise] =
-          await Promise.all([
-            getDailyTotals(day),
-            getActivityKcal(day),
-            getHealthDaily(day),
-            getWeight(day),
-            listDailyTotals(historyFrom, addDays(day, -1)),
-            listDailyActivityKcal(historyFrom, addDays(day, -1)),
-          ]);
+        const [
+          dailyTotals,
+          kcal,
+          healthRow,
+          weightRow,
+          walkStepsToday,
+          history,
+          historyExercise,
+          historyHealth,
+          historyWalkSteps,
+        ] = await Promise.all([
+          getDailyTotals(day),
+          getActivityKcal(day),
+          getHealthDaily(day),
+          getWeight(day),
+          getWalkSteps(day),
+          listDailyTotals(historyFrom, addDays(day, -1)),
+          listDailyActivityKcal(historyFrom, addDays(day, -1)),
+          listHealthDaily(historyFrom, addDays(day, -1)),
+          listDailyWalkSteps(historyFrom, addDays(day, -1)),
+        ]);
         if (cancelled) return;
         setTotals(dailyTotals);
         setExerciseKcal(kcal);
         setHealth(healthRow);
+        setWalkSteps(walkStepsToday);
         setTodayWeight(weightRow?.weightKg ?? null);
         setBodyFat(weightRow?.bodyFatPct ?? null);
         // 過去の日も、当時その日の画面に出ていた目標（＝運動ぶんを上乗せした値）と比べる
         const exerciseByDate = new Map(historyExercise.map((row) => [row.date, row.kcal]));
+        const healthByDate = new Map(historyHealth.map((row) => [row.date, row]));
+        const walkStepsByDate = new Map(historyWalkSteps.map((row) => [row.date, row.steps]));
         const bonusSettings = {
           addExerciseToTarget: settings.addExerciseToTarget,
           exerciseAddRatio: settings.exerciseAddRatio,
         };
+        // 歩数ぶんも今日と同じ数え方にする。今日だけ足すと基準が食い違う
+        const burnFor = (date: string): number =>
+          (exerciseByDate.get(date) ?? 0) +
+          dailyStepsBurn({
+            enabled: settings.countStepsAsBurn,
+            healthSteps: healthByDate.get(date)?.steps ?? null,
+            manualSteps: healthByDate.get(date)?.manualSteps ?? null,
+            recordedWalkSteps: walkStepsByDate.get(date) ?? 0,
+            weightKg: currentWeightKg,
+            heightCm: profileHeightCm,
+          });
         setAdjustment(
           computeAdjustment({
             targetKcal: profileTargetKcal,
@@ -76,7 +113,7 @@ export default function HomeScreen() {
               date: row.date,
               intakeKcal: row.kcal,
               recorded: true,
-              bonusKcal: exerciseBonus(exerciseByDate.get(row.date) ?? 0, bonusSettings),
+              bonusKcal: exerciseBonus(burnFor(row.date), bonusSettings),
             })),
             settings: {
               enabled: settings.adjustmentEnabled,
@@ -94,6 +131,9 @@ export default function HomeScreen() {
     }, [
       day,
       profileTargetKcal,
+      profileHeightCm,
+      currentWeightKg,
+      settings.countStepsAsBurn,
       settings.addExerciseToTarget,
       settings.exerciseAddRatio,
       settings.adjustmentEnabled,
@@ -120,8 +160,20 @@ export default function HomeScreen() {
 
   const burn = estimate ? resolveBurn(settings.burnSource, estimate, health) : null;
 
+  // 手で入れた歩数のうち、まだ運動として記録していないぶんの消費
+  const stepsKcal = dailyStepsBurn({
+    enabled: settings.countStepsAsBurn,
+    healthSteps: health?.steps ?? null,
+    manualSteps: health?.manualSteps ?? null,
+    recordedWalkSteps: walkSteps,
+    weightKg,
+    heightCm: profile.heightCm,
+  });
+  // 記録した運動と、歩数ぶんを合わせたものを「今日動いたぶん」とする
+  const movedKcal = exerciseKcal + stepsKcal;
+
   // 設定で「運動した分を目標に加算する」をオンにしている場合だけ上乗せする
-  const bonusKcal = exerciseBonus(exerciseKcal, settings);
+  const bonusKcal = exerciseBonus(movedKcal, settings);
   // 直近の食べ過ぎ・食べ足りない分の補正
   const adjustmentKcal = adjustment?.adjustmentKcal ?? 0;
   const adjustedTargetKcal = adjustedTarget(profile.targetKcal + bonusKcal, adjustmentKcal);
@@ -180,15 +232,15 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {exerciseKcal > 0 && (
+        {movedKcal > 0 && (
           <>
             <Divider />
             <Row
               label="運動した分を目標に足す"
               sub={
                 settings.addExerciseToTarget
-                  ? `今日の運動 ${Math.round(exerciseKcal)} kcal のうち ${Math.round(bonusKcal)} kcal を足しています`
-                  : `今日の運動 ${Math.round(exerciseKcal)} kcal は足していません`
+                  ? `今日動いたぶん ${Math.round(movedKcal)} kcal のうち ${Math.round(bonusKcal)} kcal を足しています`
+                  : `今日動いたぶん ${Math.round(movedKcal)} kcal は足していません`
               }
               value={
                 <Switch
@@ -256,12 +308,19 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {(exerciseKcal > 0 || stepsToday != null) && (
+        {(movedKcal > 0 || stepsToday != null) && (
           <>
             <Divider />
             {stepsToday != null && <Row label="歩数" value={`${stepsToday.toLocaleString()} 歩`} />}
             {exerciseKcal > 0 && (
               <Row label="運動による消費" value={`${Math.round(exerciseKcal)} kcal`} />
+            )}
+            {stepsKcal > 0 && (
+              <Row
+                label="歩数ぶんの消費"
+                sub="運動として記録したぶんは差し引いています"
+                value={`${Math.round(stepsKcal)} kcal`}
+              />
             )}
           </>
         )}

@@ -142,6 +142,42 @@ export function estimateStepsKcal(steps: number, weightKg: number, heightCm: num
   return estimateExerciseKcal(METS.walk.mets, weightKg, hours * 60);
 }
 
+export type StepsBurnParams = {
+  /** 設定でオフにされていれば足さない */
+  enabled: boolean;
+  /**
+   * ヘルスアプリから取り込めた歩数。
+   * 取り込めている日は、その消費カロリーもヘルスアプリ側から取れているので足さない。
+   * この仕組みは「連携できない・許可していない人」のためのもの。
+   */
+  healthSteps: number | null;
+  /** 手で入れた1日の歩数 */
+  manualSteps: number | null;
+  /**
+   * その日の「歩く」の記録に入っている歩数の合計。
+   * 1日の歩数にはこのぶんも含まれているので、差し引かないと二重に数えてしまう。
+   */
+  recordedWalkSteps: number;
+  weightKg: number | null;
+  heightCm: number;
+};
+
+/**
+ * 手で入れた歩数のうち、まだ運動として記録していないぶんの消費カロリー。
+ *
+ * 身体活動レベルからの推定消費にも日常の歩きは含まれているため、
+ * 厳密にはここでも重なりが残る。それでも、連携できない人にとっては
+ * 歩いたぶんが数字にまったく出ないほうが実態から遠いので、足す側に倒している。
+ */
+export function dailyStepsBurn(params: StepsBurnParams): number {
+  if (!params.enabled) return 0;
+  if (params.healthSteps != null) return 0;
+  if (params.manualSteps == null || params.weightKg == null) return 0;
+
+  const extra = Math.max(0, params.manualSteps - params.recordedWalkSteps);
+  return estimateStepsKcal(extra, params.weightKg, params.heightCm);
+}
+
 /** メッツを「きつさ」の言葉に直す。数字だけでは強度が伝わらないため */
 export function intensityLabel(mets: number): string {
   if (mets < 3) return '軽い';

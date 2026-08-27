@@ -11,6 +11,7 @@ import {
   effectiveSteps,
   listActivities,
   listDailyActivityKcal,
+  listDailyWalkSteps,
   listHealthDaily,
   type Activity,
 } from '@/db/repo/activities';
@@ -25,7 +26,7 @@ import {
   formatDayLabel,
   type DayKey,
 } from '@/lib/day';
-import { estimateBurn } from '@/lib/energy';
+import { dailyStepsBurn, estimateBurn } from '@/lib/energy';
 import { calcBmi } from '@/lib/targets';
 import { ACTIVITY_TYPE_LABELS } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -81,19 +82,22 @@ export default function AnalysisScreen() {
 
       async function load() {
         if (!profile) return;
-        const [totals, activityKcal, health, weightRecords, dayActivities] = await Promise.all([
-          listDailyTotals(from, to),
-          listDailyActivityKcal(from, to),
-          listHealthDaily(from, to),
-          listWeights(from, to),
-          // 1日だけ見るときは、その日にやった運動を一覧で出す
-          days === 1 ? listActivities(to) : Promise.resolve([]),
-        ]);
+        const [totals, activityKcal, health, weightRecords, walkSteps, dayActivities] =
+          await Promise.all([
+            listDailyTotals(from, to),
+            listDailyActivityKcal(from, to),
+            listHealthDaily(from, to),
+            listWeights(from, to),
+            listDailyWalkSteps(from, to),
+            // 1日だけ見るときは、その日にやった運動を一覧で出す
+            days === 1 ? listActivities(to) : Promise.resolve([]),
+          ]);
         if (cancelled) return;
 
         const totalsByDate = new Map(totals.map((row) => [row.date, row]));
         const activityByDate = new Map(activityKcal.map((row) => [row.date, row.kcal]));
         const healthByDate = new Map(health.map((row) => [row.date, row]));
+        const walkStepsByDate = new Map(walkSteps.map((row) => [row.date, row.steps]));
         const weightByDate = new Map(weightRecords.map((row) => [row.date, row.weightKg]));
 
         // 消費カロリーの推定にはその日の体重を使う。
@@ -127,7 +131,17 @@ export default function AnalysisScreen() {
             carbG: totalsRow?.carbG ?? 0,
             burnKcal,
             burnKnown: useWatch || weightForDay != null,
-            exerciseKcal: activityByDate.get(date) ?? 0,
+            // 歩数ぶんも「動いたぶん」に含める。ホームと同じ数え方に揃える
+            exerciseKcal:
+              (activityByDate.get(date) ?? 0) +
+              dailyStepsBurn({
+                enabled: settings.countStepsAsBurn,
+                healthSteps: healthByDate.get(date)?.steps ?? null,
+                manualSteps: healthByDate.get(date)?.manualSteps ?? null,
+                recordedWalkSteps: walkStepsByDate.get(date) ?? 0,
+                weightKg: weightForDay,
+                heightCm: profile.heightCm,
+              }),
             steps: effectiveSteps(healthByDate.get(date) ?? null),
             weightKg: weight,
           };
@@ -142,7 +156,7 @@ export default function AnalysisScreen() {
       return () => {
         cancelled = true;
       };
-    }, [from, to, days, profile, settings.burnSource, currentWeightKg]),
+    }, [from, to, days, profile, settings.burnSource, settings.countStepsAsBurn, currentWeightKg]),
   );
 
   // 記録がある日だけを合計する。記録し忘れの日を0として数えると実態とずれる

@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   labelPhotoRetentionDays: 180,
   showMets: false,
   autoSyncHealth: true,
+  countStepsAsBurn: true,
   lastHealthSyncAt: null,
   lastBackupAt: null,
   lastAutoBackupAt: null,
@@ -114,6 +115,7 @@ type SettingsRow = {
   label_photo_retention_days: number;
   show_mets: number;
   auto_sync_health: number;
+  count_steps_as_burn: number;
   last_health_sync_at: string | null;
   last_backup_at: string | null;
   last_auto_backup_at: string | null;
@@ -140,6 +142,7 @@ export async function getSettings(): Promise<Settings> {
     labelPhotoRetentionDays: row.label_photo_retention_days,
     showMets: row.show_mets === 1,
     autoSyncHealth: row.auto_sync_health === 1,
+    countStepsAsBurn: row.count_steps_as_burn === 1,
     lastHealthSyncAt: row.last_health_sync_at,
     lastBackupAt: row.last_backup_at,
     lastAutoBackupAt: row.last_auto_backup_at,
@@ -154,9 +157,9 @@ export async function saveSettings(settings: Settings): Promise<void> {
        adjustment_enabled, adjustment_days, adjustment_cap_pct, adjustment_distribution,
        burn_source, add_exercise_to_target, exercise_add_ratio,
        meal_photo_retention_days, label_photo_retention_days, show_mets,
-       auto_sync_health, last_health_sync_at,
+       auto_sync_health, count_steps_as_burn, last_health_sync_at,
        last_backup_at, last_auto_backup_at, updated_at
-     ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        day_start_hour = excluded.day_start_hour,
        adjustment_enabled = excluded.adjustment_enabled,
@@ -170,6 +173,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
        label_photo_retention_days = excluded.label_photo_retention_days,
        show_mets = excluded.show_mets,
        auto_sync_health = excluded.auto_sync_health,
+       count_steps_as_burn = excluded.count_steps_as_burn,
        last_health_sync_at = excluded.last_health_sync_at,
        last_backup_at = excluded.last_backup_at,
        last_auto_backup_at = excluded.last_auto_backup_at,
@@ -187,6 +191,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
       settings.labelPhotoRetentionDays,
       settings.showMets ? 1 : 0,
       settings.autoSyncHealth ? 1 : 0,
+      settings.countStepsAsBurn ? 1 : 0,
       settings.lastHealthSyncAt,
       settings.lastBackupAt,
       settings.lastAutoBackupAt,

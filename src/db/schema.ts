@@ -425,10 +425,16 @@ const V8 = `
 ALTER TABLE activities ADD COLUMN steps INTEGER;
 `;
 
+const V9 = `
+-- 手で入れた歩数ぶんを、その日の消費カロリーに足すか。
+-- ヘルスアプリから歩数を取り込めている日は、そちらに含まれるので足さない。
+ALTER TABLE settings ADD COLUMN count_steps_as_burn INTEGER NOT NULL DEFAULT 1;
+`;
+
 /**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7, V8];
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7, V8, V9];
 
 export const LATEST_VERSION = MIGRATIONS.length;

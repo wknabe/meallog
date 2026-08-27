@@ -15,13 +15,13 @@ import {
 import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { resetDatabase } from '@/db';
-import { listDailyActivityKcal } from '@/db/repo/activities';
+import { listDailyActivityKcal, listDailyWalkSteps, listHealthDaily } from '@/db/repo/activities';
 import { countFoods } from '@/db/repo/foods';
 import { listDailyTotals } from '@/db/repo/meals';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
 import { PRODUCT_DATA_SOURCE } from '@/db/seed/products';
 import { exportBackup, importBackup, shareBackup } from '@/lib/backup';
-import { exerciseBonus } from '@/lib/energy';
+import { dailyStepsBurn, exerciseBonus } from '@/lib/energy';
 import { HEALTH_SOURCE_NAME } from '@/lib/health';
 import { formatBytes, photoStorageBytes } from '@/lib/photos';
 import { addDays, calcAge, formatDayLabel, today } from '@/lib/day';
@@ -74,21 +74,37 @@ export default function SettingsScreen() {
       addExerciseToTarget: settings.addExerciseToTarget,
       exerciseAddRatio: settings.exerciseAddRatio,
     };
+    const from = addDays(day, -settings.adjustmentDays);
+    const to = addDays(day, -1);
     Promise.all([
-      listDailyTotals(addDays(day, -settings.adjustmentDays), addDays(day, -1)),
-      listDailyActivityKcal(addDays(day, -settings.adjustmentDays), addDays(day, -1)),
+      listDailyTotals(from, to),
+      listDailyActivityKcal(from, to),
+      listHealthDaily(from, to),
+      listDailyWalkSteps(from, to),
     ])
-      .then(([history, historyExercise]) => {
+      .then(([history, historyExercise, historyHealth, historyWalkSteps]) => {
         if (cancelled) return;
         // ホーム画面と同じ基準で計算する（運動ぶんの上乗せを含めた目標と比べる）
         const exerciseByDate = new Map(historyExercise.map((row) => [row.date, row.kcal]));
+        const healthByDate = new Map(historyHealth.map((row) => [row.date, row]));
+        const walkStepsByDate = new Map(historyWalkSteps.map((row) => [row.date, row.steps]));
+        const burnFor = (date: string): number =>
+          (exerciseByDate.get(date) ?? 0) +
+          dailyStepsBurn({
+            enabled: settings.countStepsAsBurn,
+            healthSteps: healthByDate.get(date)?.steps ?? null,
+            manualSteps: healthByDate.get(date)?.manualSteps ?? null,
+            recordedWalkSteps: walkStepsByDate.get(date) ?? 0,
+            weightKg: currentWeightKg,
+            heightCm: profile.heightCm,
+          });
         const result = computeAdjustment({
           targetKcal: profile.targetKcal,
           history: history.map((row) => ({
             date: row.date,
             intakeKcal: row.kcal,
             recorded: true,
-            bonusKcal: exerciseBonus(exerciseByDate.get(row.date) ?? 0, bonusSettings),
+            bonusKcal: exerciseBonus(burnFor(row.date), bonusSettings),
           })),
           settings: {
             enabled: settings.adjustmentEnabled,
@@ -105,7 +121,9 @@ export default function SettingsScreen() {
     };
   }, [
     profile,
+    currentWeightKg,
     settings.dayStartHour,
+    settings.countStepsAsBurn,
     settings.addExerciseToTarget,
     settings.exerciseAddRatio,
     settings.adjustmentEnabled,
@@ -513,6 +531,24 @@ export default function SettingsScreen() {
         {settings.autoSyncHealth && settings.lastHealthSyncAt != null && (
           <Text style={styles.hint}>
             最後に取り込んだのは {formatDateTime(settings.lastHealthSyncAt)} です
+          </Text>
+        )}
+
+        <Row
+          label="手で入れた歩数を消費に足す"
+          sub={`${HEALTH_SOURCE_NAME}と連携できないときのための設定です。連携できている日は、そちらの消費カロリーに含まれるので足しません`}
+          value={
+            <Switch
+              value={settings.countStepsAsBurn}
+              onValueChange={(value) => updateSettings({ countStepsAsBurn: value })}
+              trackColor={{ true: colors.primary }}
+            />
+          }
+        />
+        {settings.countStepsAsBurn && (
+          <Text style={styles.hint}>
+            歩幅を身長の45%として距離を出し、ふつうの速さで歩いたものとして計算します。
+            運動として記録した歩数は差し引きます。
           </Text>
         )}
 

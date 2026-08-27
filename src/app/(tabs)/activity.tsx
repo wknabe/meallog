@@ -9,6 +9,7 @@ import { ScreenHeader } from '@/components/ui/header';
 import {
   deleteActivity,
   getHealthDaily,
+  getWalkSteps,
   listActivities,
   listActivitiesInRange,
   saveHealthDaily,
@@ -18,7 +19,7 @@ import {
 } from '@/db/repo/activities';
 import { useTodayKey } from '@/hooks/use-today';
 import { addDays, calcAge, formatDayLabel } from '@/lib/day';
-import { estimateBurn, estimateStepsKcal, stepsToKm } from '@/lib/energy';
+import { dailyStepsBurn, estimateBurn, estimateStepsKcal, stepsToKm } from '@/lib/energy';
 import {
   HEALTH_SOURCE_NAME,
   availabilityMessage,
@@ -49,14 +50,17 @@ export default function ActivityScreen() {
   const [availability, setAvailability] = useState<HealthAvailability | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [stepsText, setStepsText] = useState('');
+  const [walkSteps, setWalkSteps] = useState(0);
   const [savingSteps, setSavingSteps] = useState(false);
 
   const reload = useCallback(async () => {
-    const [todayList, historyList, healthRow] = await Promise.all([
+    const [todayList, historyList, healthRow, walkStepsToday] = await Promise.all([
       listActivities(date),
       listActivitiesInRange(addDays(date, -29), date),
       getHealthDaily(date),
+      getWalkSteps(date),
     ]);
+    setWalkSteps(walkStepsToday);
     setActivities(todayList);
     setHistory(historyList);
     setHealth(healthRow);
@@ -221,7 +225,7 @@ export default function ActivityScreen() {
             {health?.steps != null ? (
               <>
                 <Row label="今日の歩数" value={`${health.steps.toLocaleString()} 歩`} />
-                <StepsKcalRow steps={health.steps} />
+                <StepsKcalRow steps={health.steps} fromHealth recordedWalkSteps={walkSteps} />
                 {health.manualSteps != null && (
                   <Text style={styles.note}>
                     手で入力した {health.manualSteps.toLocaleString()} 歩は残していますが、
@@ -239,7 +243,13 @@ export default function ActivityScreen() {
                     placeholder="8000"
                   />
                 </Field>
-                {Number(stepsText) > 0 && <StepsKcalRow steps={Number(stepsText)} />}
+                {Number(stepsText) > 0 && (
+                  <StepsKcalRow
+                    steps={Number(stepsText)}
+                    fromHealth={false}
+                    recordedWalkSteps={walkSteps}
+                  />
+                )}
                 <Button
                   title={savingSteps ? '保存中…' : '歩数を記録する'}
                   variant="secondary"
@@ -366,28 +376,52 @@ export default function ActivityScreen() {
 /**
  * 歩数から見積もった消費カロリー。
  *
- * これを「運動による消費」に足し込むことはしない。
- * 1日の歩数には、記録したウォーキングのぶんも、身体活動レベルから見積もった
- * 日常の移動のぶんも既に含まれているので、足すと二重に数えることになる。
+ * ヘルスアプリから取り込めている日は足さない（そちらの消費カロリーに含まれるため）。
+ * 手で入れた歩数のときだけ、運動として記録済みのぶんを差し引いて足す。
  */
-function StepsKcalRow({ steps }: { steps: number }) {
+function StepsKcalRow({
+  steps,
+  fromHealth,
+  recordedWalkSteps,
+}: {
+  steps: number;
+  fromHealth: boolean;
+  recordedWalkSteps: number;
+}) {
   const profile = useAppStore((s) => s.profile);
+  const settings = useAppStore((s) => s.settings);
   const currentWeightKg = useAppStore((s) => s.currentWeightKg);
 
   if (profile == null || currentWeightKg == null) return null;
-  const kcal = estimateStepsKcal(steps, currentWeightKg, profile.heightCm);
-  if (kcal <= 0) return null;
+
+  const counted = dailyStepsBurn({
+    enabled: settings.countStepsAsBurn,
+    healthSteps: fromHealth ? steps : null,
+    manualSteps: fromHealth ? null : steps,
+    recordedWalkSteps,
+    weightKg: currentWeightKg,
+    heightCm: profile.heightCm,
+  });
+  const raw = estimateStepsKcal(steps, currentWeightKg, profile.heightCm);
+  if (raw <= 0) return null;
 
   return (
     <>
       <Row
         label="歩数ぶんの消費"
         sub={`約${stepsToKm(steps, profile.heightCm).toFixed(1)}km 歩いた見積もり`}
-        value={`${Math.round(kcal).toLocaleString()} kcal`}
+        value={`${Math.round(raw).toLocaleString()} kcal`}
       />
       <Text style={styles.note}>
-        この数字は目安です。日常の歩きは推定消費カロリーに既に含まれているため、
-        「運動による消費」には足していません。
+        {fromHealth
+          ? `${HEALTH_SOURCE_NAME}から取れた消費カロリーに含まれているため、重ねて足してはいません。`
+          : counted > 0
+            ? `このうち ${Math.round(counted).toLocaleString()} kcal を消費に足しています。${
+                recordedWalkSteps > 0
+                  ? `運動として記録済みの ${recordedWalkSteps.toLocaleString()} 歩は差し引いています。`
+                  : ''
+              }`
+            : '設定で「歩数を消費に足す」をオフにしているため、足していません。'}
       </Text>
     </>
   );

@@ -40,6 +40,8 @@ export type Settings = {
   showMets: boolean;
   /** 端末の健康アプリから自動で取り込むか */
   autoSyncHealth: boolean;
+  /** 手で入れた歩数ぶんを消費カロリーに足すか */
+  countStepsAsBurn: boolean;
   lastHealthSyncAt: string | null;
   mealPhotoRetentionDays: number; // 0=無期限
   labelPhotoRetentionDays: number; // 0=無期限, -1=保存しない

@@ -260,6 +260,34 @@ export async function listTrack(activityId: number): Promise<TrackPoint[]> {
   return rows.map((row) => ({ lat: row.lat, lng: row.lng, recordedAt: row.recorded_at }));
 }
 
+/**
+ * その日の「歩く」の記録に入っている歩数の合計。
+ * 1日の歩数から差し引いて、二重に数えないようにするために使う。
+ */
+export async function getWalkSteps(date: DayKey): Promise<number> {
+  const db = getDatabase();
+  const row = await db.getFirstAsync<{ total: number | null }>(
+    "SELECT SUM(steps) AS total FROM activities WHERE date = ? AND type = 'walk';",
+    [date],
+  );
+  return row?.total ?? 0;
+}
+
+/** 期間内の、日ごとの歩いた記録の歩数 */
+export async function listDailyWalkSteps(
+  from: DayKey,
+  to: DayKey,
+): Promise<{ date: DayKey; steps: number }[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<{ date: string; total: number | null }>(
+    `SELECT date, SUM(steps) AS total FROM activities
+     WHERE type = 'walk' AND steps IS NOT NULL AND date BETWEEN ? AND ?
+     GROUP BY date;`,
+    [from, to],
+  );
+  return rows.map((row) => ({ date: row.date, steps: row.total ?? 0 }));
+}
+
 /** その日の運動による消費カロリーの合計 */
 export async function getActivityKcal(date: DayKey): Promise<number> {
   const db = getDatabase();
