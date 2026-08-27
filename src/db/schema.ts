@@ -420,10 +420,15 @@ const V7 = `
 ALTER TABLE health_daily ADD COLUMN manual_steps INTEGER;
 `;
 
+const V8 = `
+-- 歩いた歩数。歩きの記録で、時間の代わりに歩数から消費カロリーを見積もる
+ALTER TABLE activities ADD COLUMN steps INTEGER;
+`;
+
 /**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7];
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7, V8];
 
 export const LATEST_VERSION = MIGRATIONS.length;

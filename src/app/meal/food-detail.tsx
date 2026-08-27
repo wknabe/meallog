@@ -25,8 +25,19 @@ const MULTIPLIERS = [0.5, 1.5, 2];
 
 export default function FoodDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; dishId?: string }>();
+  const params = useLocalSearchParams<{
+    id?: string;
+    dishId?: string;
+    /** 記録済みの中身を直すとき。下書きの item のキー */
+    editKey?: string;
+    /** 直すときの初期値 */
+    quantity?: string;
+    /** 直すときの単位名。記録には「1パック」のような表示ラベルしか無いので名前で照合する */
+    unitName?: string;
+  }>();
   const addItems = useMealDraftStore((s) => s.addItems);
+  const updateItem = useMealDraftStore((s) => s.updateItem);
+  const editKey = params.editKey ?? null;
 
   const [food, setFood] = useState<Food | null>(null);
   const [units, setUnits] = useState<FoodUnit[]>([]);
@@ -45,7 +56,7 @@ export default function FoodDetailScreen() {
         const loaded = await getDish(Number(params.dishId));
         if (cancelled) return;
         setDish(loaded);
-        setQuantityText('1');
+        setQuantityText(editKey != null && params.quantity != null ? params.quantity : '1');
         return;
       }
       if (!params.id) return;
@@ -54,6 +65,16 @@ export default function FoodDetailScreen() {
       if (cancelled) return;
       setFood(loaded);
       setUnits(loadedUnits);
+      // 直しに来たときは、記録されている分量から始める
+      if (editKey != null) {
+        if (params.quantity != null) setQuantityText(params.quantity);
+        const matched =
+          params.unitName != null && params.unitName !== ''
+            ? (loadedUnits.find((unit) => unit.name === params.unitName) ?? null)
+            : null;
+        setUnitId(matched?.id ?? null);
+        return;
+      }
       // 常用単位があるものは「1個」「1パック」から始めたほうが入力が速い
       if (loadedUnits.length > 0) {
         setUnitId(loadedUnits[0].id);
@@ -64,7 +85,7 @@ export default function FoodDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [params.id, params.dishId]);
+  }, [params.id, params.dishId, params.quantity, params.unitName, editKey]);
 
   const quantity = Number(quantityText) || 0;
   const selectedUnit = units.find((unit) => unit.id === unitId) ?? null;
@@ -81,16 +102,26 @@ export default function FoodDetailScreen() {
   function handleAdd() {
     if (quantity <= 0 || added) return;
     setAdded(true);
-    if (dish) {
-      addItems([dishToMealItem(dish, quantity)]);
-      void incrementDishUseCount(dish.id);
-    } else if (food) {
-      addItems([foodToMealItem(food, quantity, selectedUnit)]);
-      void incrementFoodUseCount(food.id);
-    } else {
+
+    const item = dish
+      ? dishToMealItem(dish, quantity)
+      : food
+        ? foodToMealItem(food, quantity, selectedUnit)
+        : null;
+    if (item == null) {
       setAdded(false);
       return;
     }
+
+    if (editKey != null) {
+      // 直しに来た場合は、同じ行の分量だけを差し替える
+      updateItem(editKey, item);
+    } else {
+      addItems([item]);
+      if (dish) void incrementDishUseCount(dish.id);
+      else if (food) void incrementFoodUseCount(food.id);
+    }
+
     // 記録画面まで一気に戻る。記録画面が履歴になければ、この画面と置き換わる
     router.dismissTo('/meal/edit');
   }
@@ -205,7 +236,11 @@ export default function FoodDetailScreen() {
         </Card>
       )}
 
-      <Button title="食事に追加" onPress={handleAdd} disabled={quantity <= 0 || added} />
+      <Button
+        title={editKey != null ? '分量を変更する' : '食事に追加'}
+        onPress={handleAdd}
+        disabled={quantity <= 0 || added}
+      />
     </Screen>
   );
 }

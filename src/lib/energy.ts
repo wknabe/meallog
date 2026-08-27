@@ -112,6 +112,36 @@ export const METS: Record<string, { label: string; mets: number; hint: string }>
   housework: { label: '家事', mets: 3.0, hint: '掃除機がけ・洗濯など' },
 };
 
+/**
+ * 歩幅（メートル）。身長のおよそ45%が目安。
+ * 歩数から距離を出すために使う。
+ */
+export function strideMeters(heightCm: number): number {
+  return (heightCm * 0.45) / 100;
+}
+
+/** 歩数から歩いた距離（km）を出す */
+export function stepsToKm(steps: number, heightCm: number): number {
+  return (steps * strideMeters(heightCm)) / 1000;
+}
+
+/**
+ * 歩数から消費カロリーを見積もる。
+ *
+ * 歩数そのものにはカロリーの情報がないので、
+ * 歩幅から距離を出し、ふつうの速さ（時速4.8km）で歩いたものとして時間に直し、
+ * ウォーキングのメッツを当てる。他の運動と同じ計算に乗せるためにこの形にしている。
+ *
+ * 目安であって実測ではない。歩幅も速さも人によって違うので、数字は幅を持って見ること。
+ */
+const WALK_KM_PER_HOUR = 4.8;
+
+export function estimateStepsKcal(steps: number, weightKg: number, heightCm: number): number {
+  if (steps <= 0 || weightKg <= 0 || heightCm <= 0) return 0;
+  const hours = stepsToKm(steps, heightCm) / WALK_KM_PER_HOUR;
+  return estimateExerciseKcal(METS.walk.mets, weightKg, hours * 60);
+}
+
 /** メッツを「きつさ」の言葉に直す。数字だけでは強度が伝わらないため */
 export function intensityLabel(mets: number): string {
   if (mets < 3) return '軽い';

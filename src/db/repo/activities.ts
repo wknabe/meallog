@@ -11,6 +11,8 @@ export type Activity = {
   name: string | null;
   durationMin: number | null;
   distanceKm: number | null;
+  /** 歩いた歩数。歩きの記録だけで使う */
+  steps: number | null;
   reps: number | null;
   sets: number | null;
   kcal: number | null;
@@ -26,6 +28,7 @@ type ActivityRow = {
   name: string | null;
   duration_min: number | null;
   distance_km: number | null;
+  steps: number | null;
   reps: number | null;
   sets: number | null;
   kcal: number | null;
@@ -39,6 +42,7 @@ const toActivity = (row: ActivityRow): Activity => ({
   name: row.name,
   durationMin: row.duration_min,
   distanceKm: row.distance_km,
+  steps: row.steps,
   reps: row.reps,
   sets: row.sets,
   kcal: row.kcal,
@@ -48,14 +52,16 @@ const toActivity = (row: ActivityRow): Activity => ({
 export async function createActivity(input: ActivityInput): Promise<number> {
   const db = getDatabase();
   const result = await db.runAsync(
-    `INSERT INTO activities (date, type, name, duration_min, distance_km, reps, sets, kcal, memo, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    `INSERT INTO activities
+       (date, type, name, duration_min, distance_km, steps, reps, sets, kcal, memo, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     [
       input.date,
       input.type,
       input.name,
       input.durationMin,
       input.distanceKm,
+      input.steps,
       input.reps,
       input.sets,
       input.kcal,
@@ -82,6 +88,36 @@ export async function listActivitiesInRange(from: DayKey, to: DayKey): Promise<A
     [from, to],
   );
   return rows.map(toActivity);
+}
+
+export async function getActivity(id: number): Promise<Activity | null> {
+  const db = getDatabase();
+  const row = await db.getFirstAsync<ActivityRow>('SELECT * FROM activities WHERE id = ?;', [id]);
+  return row ? toActivity(row) : null;
+}
+
+/** 記録した運動を書き換える。種目とセットは別途 saveExercises で入れ替える */
+export async function updateActivity(id: number, input: ActivityInput): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync(
+    `UPDATE activities SET
+       date = ?, type = ?, name = ?, duration_min = ?, distance_km = ?,
+       steps = ?, reps = ?, sets = ?, kcal = ?, memo = ?
+     WHERE id = ?;`,
+    [
+      input.date,
+      input.type,
+      input.name,
+      input.durationMin,
+      input.distanceKm,
+      input.steps,
+      input.reps,
+      input.sets,
+      input.kcal,
+      input.memo,
+      id,
+    ],
+  );
 }
 
 export async function deleteActivity(id: number): Promise<void> {

@@ -18,7 +18,7 @@ import {
 } from '@/db/repo/activities';
 import { useTodayKey } from '@/hooks/use-today';
 import { addDays, calcAge, formatDayLabel } from '@/lib/day';
-import { estimateBurn } from '@/lib/energy';
+import { estimateBurn, estimateStepsKcal, stepsToKm } from '@/lib/energy';
 import {
   HEALTH_SOURCE_NAME,
   availabilityMessage,
@@ -136,6 +136,11 @@ export default function ActivityScreen() {
 
   const exerciseKcal = activities.reduce((sum, activity) => sum + (activity.kcal ?? 0), 0);
 
+  /** 記録した運動を開いて直す */
+  function openActivity(activity: Activity) {
+    router.push({ pathname: '/workout/new', params: { id: String(activity.id) } });
+  }
+
   function confirmDelete(activity: Activity) {
     Alert.alert('この記録を削除しますか？', activity.name ?? '運動の記録', [
       { text: 'キャンセル', style: 'cancel' },
@@ -173,7 +178,11 @@ export default function ActivityScreen() {
               activities.map((activity, index) => (
                 <View key={activity.id}>
                   {index > 0 && <Divider />}
-                  <Pressable onLongPress={() => confirmDelete(activity)}>
+                  <Pressable
+                    onPress={() => openActivity(activity)}
+                    onLongPress={() => confirmDelete(activity)}
+                    style={({ pressed }) => pressed && styles.pressed}
+                  >
                     <Row
                       label={activity.name ?? ACTIVITY_TYPE_LABELS[activity.type]}
                       sub={describeActivity(activity)}
@@ -185,6 +194,7 @@ export default function ActivityScreen() {
             )}
             {activities.length > 0 && (
               <>
+                <Text style={styles.note}>タップで編集、長押しで削除できます</Text>
                 <Divider />
                 <Row label="運動による消費" value={`${Math.round(exerciseKcal)} kcal`} />
               </>
@@ -211,6 +221,7 @@ export default function ActivityScreen() {
             {health?.steps != null ? (
               <>
                 <Row label="今日の歩数" value={`${health.steps.toLocaleString()} 歩`} />
+                <StepsKcalRow steps={health.steps} />
                 {health.manualSteps != null && (
                   <Text style={styles.note}>
                     手で入力した {health.manualSteps.toLocaleString()} 歩は残していますが、
@@ -228,6 +239,7 @@ export default function ActivityScreen() {
                     placeholder="8000"
                   />
                 </Field>
+                {Number(stepsText) > 0 && <StepsKcalRow steps={Number(stepsText)} />}
                 <Button
                   title={savingSteps ? '保存中…' : '歩数を記録する'}
                   variant="secondary"
@@ -330,7 +342,11 @@ export default function ActivityScreen() {
           {history.map((activity, index) => (
             <View key={activity.id}>
               {index > 0 && <Divider />}
-              <Pressable onLongPress={() => confirmDelete(activity)}>
+              <Pressable
+                onPress={() => openActivity(activity)}
+                onLongPress={() => confirmDelete(activity)}
+                style={({ pressed }) => pressed && styles.pressed}
+              >
                 <Row
                   label={`${formatDayLabel(activity.date)} ${activity.name ?? ACTIVITY_TYPE_LABELS[activity.type]}`}
                   sub={describeActivity(activity)}
@@ -339,7 +355,7 @@ export default function ActivityScreen() {
               </Pressable>
             </View>
           ))}
-          <Text style={styles.note}>長押しで削除できます</Text>
+          <Text style={styles.note}>タップで編集、長押しで削除できます</Text>
         </Card>
       )}
     </Screen>
@@ -347,8 +363,39 @@ export default function ActivityScreen() {
 }
 
 /** 「5.0km / 32分」のような補足表示を作る */
+/**
+ * 歩数から見積もった消費カロリー。
+ *
+ * これを「運動による消費」に足し込むことはしない。
+ * 1日の歩数には、記録したウォーキングのぶんも、身体活動レベルから見積もった
+ * 日常の移動のぶんも既に含まれているので、足すと二重に数えることになる。
+ */
+function StepsKcalRow({ steps }: { steps: number }) {
+  const profile = useAppStore((s) => s.profile);
+  const currentWeightKg = useAppStore((s) => s.currentWeightKg);
+
+  if (profile == null || currentWeightKg == null) return null;
+  const kcal = estimateStepsKcal(steps, currentWeightKg, profile.heightCm);
+  if (kcal <= 0) return null;
+
+  return (
+    <>
+      <Row
+        label="歩数ぶんの消費"
+        sub={`約${stepsToKm(steps, profile.heightCm).toFixed(1)}km 歩いた見積もり`}
+        value={`${Math.round(kcal).toLocaleString()} kcal`}
+      />
+      <Text style={styles.note}>
+        この数字は目安です。日常の歩きは推定消費カロリーに既に含まれているため、
+        「運動による消費」には足していません。
+      </Text>
+    </>
+  );
+}
+
 function describeActivity(activity: Activity): string | undefined {
   const parts: string[] = [];
+  if (activity.steps != null) parts.push(`${activity.steps.toLocaleString()}歩`);
   if (activity.distanceKm != null) parts.push(`${activity.distanceKm}km`);
   if (activity.durationMin != null) parts.push(`${activity.durationMin}分`);
   if (activity.reps != null) {
@@ -380,5 +427,6 @@ const styles = StyleSheet.create({
   },
   boxTitle: { fontSize: fontSize.sm, fontWeight: '700', color: colors.text, marginBottom: 4 },
   fromHealth: { fontSize: fontSize.xs, color: colors.textFaint },
+  pressed: { opacity: 0.6 },
   note: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 16 },
 });

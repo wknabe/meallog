@@ -16,7 +16,7 @@ import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
 import { formatGrams } from '@/lib/units';
 import { MEAL_SLOT_LABELS, MEAL_SLOT_ORDER, type MealSlot } from '@/lib/types';
 import { useAppStore } from '@/store/app';
-import { draftTotals, useMealDraftStore } from '@/store/meal-draft';
+import { draftTotals, useMealDraftStore, type DraftItem } from '@/store/meal-draft';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
 export default function EditMealScreen() {
@@ -159,6 +159,21 @@ export default function EditMealScreen() {
 
   const uri = photoUri(draft.photoPath);
 
+  /** 記録済みの1品を開いて分量を直す */
+  function openItem(item: DraftItem) {
+    // 表示ラベルの先頭の数字を落とすと単位名だけが残る（「1パック」→「パック」）
+    const unitName = item.unitLabel?.replace(/^[\d.]+/, '') ?? '';
+    router.push({
+      pathname: '/meal/food-detail',
+      params: {
+        ...(item.refType === 'dish' ? { dishId: String(item.refId) } : { id: String(item.refId) }),
+        editKey: item.key,
+        quantity: String(item.quantity),
+        unitName,
+      },
+    });
+  }
+
   return (
     <Screen>
       {/* 食事の区分 */}
@@ -244,12 +259,18 @@ export default function EditMealScreen() {
             <View key={item.key}>
               {index > 0 && <Divider />}
               <View style={styles.item}>
-                <View style={styles.flex}>
+                {/* タップで分量を直せる。記録したあとに「思ったより食べた」を反映するため */}
+                <Pressable
+                  onPress={() => openItem(item)}
+                  style={({ pressed }) => [styles.flex, pressed && styles.pressed]}
+                >
                   <Text style={styles.itemName} numberOfLines={2}>
                     {item.name}
                   </Text>
-                  <Text style={styles.itemAmount}>{item.unitLabel ?? formatGrams(item.grams)}</Text>
-                </View>
+                  <Text style={styles.itemAmount}>
+                    {item.unitLabel ?? formatGrams(item.grams)}　＞
+                  </Text>
+                </Pressable>
                 <Text style={styles.itemKcal}>{Math.round(item.nutrients.kcal)} kcal</Text>
                 <Pressable
                   onPress={() => draft.removeItem(item.key)}
@@ -325,6 +346,7 @@ function MacroChip({ label, value, color }: { label: string; value: number; colo
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  pressed: { opacity: 0.6 },
   label: {
     fontSize: fontSize.sm,
     color: colors.textSub,

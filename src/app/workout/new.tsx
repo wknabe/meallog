@@ -1,5 +1,5 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -12,9 +12,21 @@ import {
 } from '@/components/ui/controls';
 import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Screen } from '@/components/ui/layout';
-import { createActivity, findPreviousExercise, saveExercises } from '@/db/repo/activities';
+import {
+  createActivity,
+  findPreviousExercise,
+  getActivity,
+  saveExercises,
+  updateActivity,
+} from '@/db/repo/activities';
 import { formatDayLabel, today } from '@/lib/day';
-import { METS, estimateExerciseKcal, intensityLabel } from '@/lib/energy';
+import {
+  METS,
+  estimateExerciseKcal,
+  estimateStepsKcal,
+  intensityLabel,
+  stepsToKm,
+} from '@/lib/energy';
 import { describeSets, totalVolume } from '@/lib/equipment';
 import { ACTIVITY_TYPE_LABELS, type ActivityType } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -64,7 +76,9 @@ type StrengthMode = 'simple' | 'detail';
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ date?: string }>();
+  const params = useLocalSearchParams<{ date?: string; id?: string }>();
+  const editingId = params.id != null ? Number(params.id) : null;
+  const profile = useAppStore((s) => s.profile);
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const currentWeightKg = useAppStore((s) => s.currentWeightKg);
@@ -81,44 +95,89 @@ export default function NewWorkoutScreen() {
   const [distance, setDistance] = useState('');
   const [reps, setReps] = useState('');
   const [sets, setSets] = useState('');
+  const [stepsText, setStepsText] = useState('');
   const [kcalText, setKcalText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(editingId == null);
 
   const minutesValue = Number(minutes) || 0;
+  const stepsValue = Number(stepsText) || 0;
 
-  // 体重とMETsから消費カロリーを推定する。手で書き換えられる
+  // 記録し直しに来たときは、保存されている内容を読み込む
+  useEffect(() => {
+    if (editingId == null) return;
+    let cancelled = false;
+    getActivity(editingId)
+      .then((activity) => {
+        if (cancelled || activity == null) return;
+        setDate(activity.date);
+        setType(activity.type);
+        setMetsKey(METS_BY_TYPE[activity.type][0]);
+        setName(activity.name ?? '');
+        setMinutes(activity.durationMin != null ? String(activity.durationMin) : '');
+        setDistance(activity.distanceKm != null ? String(activity.distanceKm) : '');
+        setStepsText(activity.steps != null ? String(activity.steps) : '');
+        setReps(activity.reps != null ? String(activity.reps) : '');
+        setSets(activity.sets != null ? String(activity.sets) : '');
+        setKcalText(activity.kcal != null ? String(activity.kcal) : '');
+        // 既存の記録は「時間だけ」の形で保存されているので、そのまま直せる形で開く
+        if (activity.type === 'strength') setStrengthMode('simple');
+        setLoaded(true);
+      })
+      .catch((error) => console.error('運動の読み込みに失敗しました', error));
+    return () => {
+      cancelled = true;
+    };
+  }, [editingId]);
+
+  // 歩数から見積もった消費カロリー。歩きの記録でだけ使う
+  const stepsKcal = useMemo(() => {
+    if (type !== 'walk' || stepsValue <= 0 || !currentWeightKg || profile == null) return 0;
+    return estimateStepsKcal(stepsValue, currentWeightKg, profile.heightCm);
+  }, [type, stepsValue, currentWeightKg, profile]);
+
+  // 体重とMETsから消費カロリーを推定する。手で書き換えられる。
+  // 歩数が入っていれば、時間より歩数のほうが実態に近いのでそちらを使う
   const estimatedKcal = useMemo(() => {
+    if (stepsKcal > 0) return stepsKcal;
     const mets = METS[metsKey]?.mets ?? 0;
     if (!currentWeightKg || minutesValue <= 0 || mets <= 0) return 0;
     return estimateExerciseKcal(mets, currentWeightKg, minutesValue);
-  }, [metsKey, currentWeightKg, minutesValue]);
+  }, [stepsKcal, metsKey, currentWeightKg, minutesValue]);
 
   const kcalValue = kcalText.trim() === '' ? estimatedKcal : Number(kcalText) || 0;
 
   const usingExercises = type === 'strength' && strengthMode === 'detail';
   const canSave = usingExercises
     ? hasAnySet(exercises)
-    : minutesValue > 0 || Number(reps) > 0 || Number(distance) > 0;
+    : minutesValue > 0 || Number(reps) > 0 || Number(distance) > 0 || stepsValue > 0;
 
   async function handleSave() {
     if (saving || !canSave) return;
     setSaving(true);
     try {
-      const activityId = await createActivity({
+      const input = {
         date,
         type,
         name: name.trim() === '' ? (METS[metsKey]?.label ?? null) : name.trim(),
         durationMin: minutesValue > 0 ? minutesValue : null,
         distanceKm: Number(distance) > 0 ? Number(distance) : null,
+        steps: type === 'walk' && stepsValue > 0 ? Math.round(stepsValue) : null,
         // 種目ごとに記録するときは、合計の回数・セットは持たせない
         reps: !usingExercises && Number(reps) > 0 ? Number(reps) : null,
         sets: !usingExercises && Number(sets) > 0 ? Number(sets) : null,
         kcal: kcalValue > 0 ? Math.round(kcalValue) : null,
         memo: null,
-      });
-      if (usingExercises) {
-        await saveExercises(activityId, toExerciseDrafts(exercises));
-        clearExercises();
+      };
+
+      if (editingId != null) {
+        await updateActivity(editingId, input);
+      } else {
+        const activityId = await createActivity(input);
+        if (usingExercises) {
+          await saveExercises(activityId, toExerciseDrafts(exercises));
+          clearExercises();
+        }
       }
       router.back();
     } catch (error) {
@@ -131,6 +190,9 @@ export default function NewWorkoutScreen() {
 
   return (
     <Screen>
+      {/* 直しに来たときは見出しを変える。追加なのか編集なのか分からなくなるため */}
+      {editingId != null && <Stack.Screen options={{ title: '運動を編集' }} />}
+
       <Card>
         <Field label="日付">
           <DateField value={date} onChange={setDate} maximumDate={new Date()} />
@@ -156,7 +218,7 @@ export default function NewWorkoutScreen() {
         )}
       </Card>
 
-      {type === 'strength' && (
+      {type === 'strength' && editingId == null && (
         <Card>
           <CardTitle
             right={
@@ -267,13 +329,33 @@ export default function NewWorkoutScreen() {
           </View>
         )}
 
+        {type === 'walk' && (
+          <Field
+            label="歩数"
+            hint={
+              stepsKcal > 0
+                ? `歩幅を身長の45%として、約${stepsToKm(stepsValue, profile?.heightCm ?? 0).toFixed(1)}km 歩いたものとして計算しています`
+                : '入れると、時間の代わりに歩数から消費カロリーを見積もります'
+            }
+          >
+            <NumberInput
+              value={stepsText}
+              onChangeText={setStepsText}
+              unit="歩"
+              placeholder="6000"
+            />
+          </Field>
+        )}
+
         <Field
           label="消費カロリー"
           hint={
             kcalText.trim() === ''
-              ? currentWeightKg
-                ? `体重と運動の強さから推定しています（${Math.round(estimatedKcal)} kcal）`
-                : '体重が未登録のため推定できません。直接入力してください。'
+              ? stepsKcal > 0
+                ? `歩数から推定しています（${Math.round(estimatedKcal)} kcal）`
+                : currentWeightKg
+                  ? `体重と運動の強さから推定しています（${Math.round(estimatedKcal)} kcal）`
+                  : '体重が未登録のため推定できません。直接入力してください。'
               : undefined
           }
         >
@@ -291,9 +373,9 @@ export default function NewWorkoutScreen() {
       </Text>
 
       <Button
-        title={saving ? '保存中…' : '保存する'}
+        title={saving ? '保存中…' : editingId != null ? '変更を保存する' : '保存する'}
         onPress={() => void handleSave()}
-        disabled={saving || !canSave}
+        disabled={saving || !canSave || !loaded}
       />
     </Screen>
   );

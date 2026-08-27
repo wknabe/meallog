@@ -59,6 +59,8 @@ export default function TrackScreen() {
         name: METS[metsKey].label,
         durationMin: minutes > 0 ? Math.round(minutes * 10) / 10 : null,
         distanceKm: track.distanceKm > 0 ? Math.round(track.distanceKm * 100) / 100 : null,
+        // GPSは距離を測るもので、歩数は数えていない
+        steps: null,
         reps: null,
         sets: null,
         kcal: kcal > 0 ? Math.round(kcal) : null,
