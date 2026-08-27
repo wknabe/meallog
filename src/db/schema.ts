@@ -337,10 +337,52 @@ CREATE UNIQUE INDEX idx_dishes_seed_key ON dishes(seed_key) WHERE seed_key IS NO
 UPDATE dishes SET seed_key = name WHERE source = 'preset';
 `;
 
+const V4 = `
+-- メッツの数字をそのまま出すか、体感の言葉で出すか
+ALTER TABLE settings ADD COLUMN show_mets INTEGER NOT NULL DEFAULT 0;
+
+-- 筋トレの種目ごとの記録。
+-- activities に1行だけ持たせると「ベンチ60kg×10回×3セット、次はラットプル…」が書けないため、
+-- 1回のトレーニング（activities の1行）にぶら下げる形で分ける。
+CREATE TABLE activity_exercises (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  activity_id  INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  -- 器具・種目の識別子。一覧に無いものは NULL にして name だけ使う
+  equipment_key TEXT,
+  name         TEXT    NOT NULL,
+  -- 種目の中での並び順
+  position     INTEGER NOT NULL DEFAULT 0,
+  created_at   TEXT    NOT NULL
+);
+CREATE INDEX idx_activity_exercises_activity ON activity_exercises(activity_id);
+
+-- 種目ごとのセット。セットごとに重さを変えられるようにする
+CREATE TABLE activity_sets (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  exercise_id INTEGER NOT NULL REFERENCES activity_exercises(id) ON DELETE CASCADE,
+  position    INTEGER NOT NULL DEFAULT 0,
+  weight_kg   REAL,
+  reps        INTEGER
+);
+CREATE INDEX idx_activity_sets_exercise ON activity_sets(exercise_id);
+
+-- GPSで測ったウォーキング・ランニングの軌跡。
+-- 地図は出さないので、距離の再計算と簡易な線図に使うぶんだけ持つ
+CREATE TABLE activity_tracks (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  position    INTEGER NOT NULL,
+  lat         REAL    NOT NULL,
+  lng         REAL    NOT NULL,
+  recorded_at TEXT    NOT NULL
+);
+CREATE INDEX idx_activity_tracks_activity ON activity_tracks(activity_id, position);
+`;
+
 /**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1, V2, V3];
+export const MIGRATIONS: string[] = [V1, V2, V3, V4];
 
 export const LATEST_VERSION = MIGRATIONS.length;

@@ -12,12 +12,15 @@ export function DateField({
   placeholder = '選択してください',
   minimumDate,
   maximumDate,
+  wheel = false,
 }: {
   value: DayKey | null;
   onChange: (value: DayKey) => void;
   placeholder?: string;
   minimumDate?: Date;
   maximumDate?: Date;
+  /** 年・月・日をリールで選ぶ。生年月日のように遠い日付を選ぶときに使う */
+  wheel?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -36,8 +39,9 @@ export function DateField({
         <DateTimePicker
           value={value != null ? fromDayKey(value) : (maximumDate ?? new Date())}
           mode="date"
-          // Androidはダイアログ、iOSはインラインのカレンダーが自然な見た目になる
-          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          // リール指定なら年・月・日を回して選ぶ。
+          // そうでなければ Android はダイアログ、iOS はインラインのカレンダーが自然
+          display={wheel ? 'spinner' : Platform.OS === 'ios' ? 'inline' : 'default'}
           minimumDate={minimumDate}
           maximumDate={maximumDate}
           onChange={(event, selected) => {

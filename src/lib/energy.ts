@@ -90,18 +90,32 @@ export function estimateExerciseKcal(mets: number, weightKg: number, minutes: nu
   return mets * weightKg * (minutes / 60) * 1.05;
 }
 
-/** よくある運動のMETs値（厚生労働省の身体活動のメッツ表を参考にした代表値） */
-export const METS: Record<string, { label: string; mets: number }> = {
-  walk_slow: { label: 'ウォーキング（ゆっくり）', mets: 3.0 },
-  walk: { label: 'ウォーキング（普通）', mets: 3.5 },
-  walk_fast: { label: 'ウォーキング（速歩）', mets: 4.3 },
-  jog: { label: 'ジョギング', mets: 7.0 },
-  run: { label: 'ランニング（時速8km）', mets: 8.3 },
-  run_fast: { label: 'ランニング（時速10km）', mets: 10.0 },
-  cycling: { label: 'サイクリング', mets: 6.8 },
-  swim: { label: '水泳', mets: 7.0 },
-  strength_light: { label: '筋トレ（軽め）', mets: 3.5 },
-  strength: { label: '筋トレ（しっかり）', mets: 6.0 },
-  stretch: { label: 'ストレッチ・ヨガ', mets: 2.5 },
-  housework: { label: '家事', mets: 3.0 },
+/**
+ * よくある運動のMETs値（厚生労働省の身体活動のメッツ表を参考にした代表値）。
+ *
+ * メッツは「安静時の何倍のエネルギーを使うか」を表す数字だが、
+ * 3.5 と 4.3 の違いを体感に置き換えられる人は少ない。
+ * どれを選べばよいか迷わないよう、息の上がり具合で言い換えた hint を添えている。
+ */
+export const METS: Record<string, { label: string; mets: number; hint: string }> = {
+  walk_slow: { label: 'ウォーキング（ゆっくり）', mets: 3.0, hint: '散歩くらい。息は上がらない' },
+  walk: { label: 'ウォーキング（普通）', mets: 3.5, hint: '会話しながら歩ける速さ' },
+  walk_fast: { label: 'ウォーキング（速歩）', mets: 4.3, hint: '少し息が弾む。早歩き' },
+  jog: { label: 'ジョギング', mets: 7.0, hint: '会話が途切れがちな軽い走り' },
+  run: { label: 'ランニング（時速8km）', mets: 8.3, hint: '会話は続かない。1km 7分半ほど' },
+  run_fast: { label: 'ランニング（時速10km）', mets: 10.0, hint: 'かなり息が上がる。1km 6分ほど' },
+  cycling: { label: 'サイクリング', mets: 6.8, hint: '軽く汗ばむ速さで漕ぐ' },
+  swim: { label: '水泳', mets: 7.0, hint: 'クロールでゆったり泳ぐ' },
+  strength_light: { label: '筋トレ（軽め）', mets: 3.5, hint: 'マシン中心。セット間の休憩は長め' },
+  strength: { label: '筋トレ（しっかり）', mets: 6.0, hint: '高重量で追い込む。休憩は短め' },
+  stretch: { label: 'ストレッチ・ヨガ', mets: 2.5, hint: '呼吸が乱れない程度' },
+  housework: { label: '家事', mets: 3.0, hint: '掃除機がけ・洗濯など' },
 };
+
+/** メッツを「きつさ」の言葉に直す。数字だけでは強度が伝わらないため */
+export function intensityLabel(mets: number): string {
+  if (mets < 3) return '軽い';
+  if (mets < 6) return 'ふつう';
+  if (mets < 9) return 'きつい';
+  return 'かなりきつい';
+}

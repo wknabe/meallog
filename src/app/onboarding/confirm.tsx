@@ -26,7 +26,7 @@ export default function ConfirmStep() {
   const result = useMemo(
     () =>
       calcTargets({
-        gender: draft.gender ?? 'male',
+        gender: draft.gender,
         birthDate: draft.birthDate ?? '1990-01-01',
         heightCm: Number(draft.heightCm),
         weightKg,
@@ -57,7 +57,7 @@ export default function ConfirmStep() {
     setSaving(true);
     try {
       const profile: Profile = {
-        gender: draft.gender ?? 'male',
+        gender: draft.gender,
         birthDate: draft.birthDate ?? '1990-01-01',
         heightCm: Number(draft.heightCm),
         activityLevel: draft.activityLevel ?? 3,

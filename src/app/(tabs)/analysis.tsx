@@ -1,12 +1,18 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { GroupedBarChart, LineChartView } from '@/components/ui/charts';
 import { SegmentedControl } from '@/components/ui/controls';
 import { ScreenHeader } from '@/components/ui/header';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
-import { listDailyActivityKcal, listHealthDaily } from '@/db/repo/activities';
+import {
+  listActivities,
+  listDailyActivityKcal,
+  listHealthDaily,
+  type Activity,
+} from '@/db/repo/activities';
 import { listDailyTotals } from '@/db/repo/meals';
 import { listWeights, type WeightRecord } from '@/db/repo/weights';
 import { useTodayKey } from '@/hooks/use-today';
@@ -20,6 +26,7 @@ import {
 } from '@/lib/day';
 import { estimateBurn } from '@/lib/energy';
 import { calcBmi } from '@/lib/targets';
+import { ACTIVITY_TYPE_LABELS } from '@/lib/types';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, spacing } from '@/theme/colors';
 
@@ -27,6 +34,7 @@ type Tab = 'calorie' | 'pfc' | 'weight' | 'activity';
 
 /** 表示期間。平均は出さず、期間の合計で比較する */
 const PERIODS = [
+  { value: 1, label: '1日' },
   { value: 7, label: '1週間' },
   { value: 14, label: '2週間' },
   { value: 21, label: '3週間' },
@@ -54,12 +62,17 @@ export default function AnalysisScreen() {
 
   const [tab, setTab] = useState<Tab>('calorie');
   const [days, setDays] = useState(7);
+  /** 期間の終わりの日。null なら今日。1日表示のときに前後へ動かす */
+  const [anchor, setAnchor] = useState<DayKey | null>(null);
   const [rows, setRows] = useState<DayRow[]>([]);
   const [weights, setWeights] = useState<WeightRecord[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [showIntakeWithWeight, setShowIntakeWithWeight] = useState(true);
 
   const todayKey = useTodayKey(settings.dayStartHour);
-  const from = addDays(todayKey, -(days - 1));
+  const to = anchor ?? todayKey;
+  const from = addDays(to, -(days - 1));
+  const single = days === 1;
 
   useFocusEffect(
     useCallback(() => {
@@ -67,11 +80,13 @@ export default function AnalysisScreen() {
 
       async function load() {
         if (!profile) return;
-        const [totals, activityKcal, health, weightRecords] = await Promise.all([
-          listDailyTotals(from, todayKey),
-          listDailyActivityKcal(from, todayKey),
-          listHealthDaily(from, todayKey),
-          listWeights(from, todayKey),
+        const [totals, activityKcal, health, weightRecords, dayActivities] = await Promise.all([
+          listDailyTotals(from, to),
+          listDailyActivityKcal(from, to),
+          listHealthDaily(from, to),
+          listWeights(from, to),
+          // 1日だけ見るときは、その日にやった運動を一覧で出す
+          days === 1 ? listActivities(to) : Promise.resolve([]),
         ]);
         if (cancelled) return;
 
@@ -83,7 +98,7 @@ export default function AnalysisScreen() {
         // 消費カロリーの推定にはその日の体重を使う。
         // 記録がない日は直前の記録を引き継ぎ、それも無ければ現在の体重を使う。
         let lastWeight = currentWeightKg;
-        const built: DayRow[] = dateRange(from, todayKey).map((date) => {
+        const built: DayRow[] = dateRange(from, to).map((date) => {
           const weight = weightByDate.get(date) ?? null;
           if (weight != null) lastWeight = weight;
           const weightForDay = weight ?? lastWeight;
@@ -119,13 +134,14 @@ export default function AnalysisScreen() {
 
         setRows(built);
         setWeights(weightRecords);
+        setActivities(dayActivities);
       }
 
       load().catch((error) => console.error('分析の読み込みに失敗しました', error));
       return () => {
         cancelled = true;
       };
-    }, [from, todayKey, profile, settings.burnSource, currentWeightKg]),
+    }, [from, to, days, profile, settings.burnSource, currentWeightKg]),
   );
 
   // 記録がある日だけを合計する。記録し忘れの日を0として数えると実態とずれる
@@ -143,7 +159,7 @@ export default function AnalysisScreen() {
     <Screen>
       <ScreenHeader
         title="分析"
-        subtitle={`${formatDayLabel(from)} 〜 ${formatDayLabel(todayKey)}`}
+        subtitle={single ? formatDayLabel(to) : `${formatDayLabel(from)} 〜 ${formatDayLabel(to)}`}
       />
 
       <SegmentedControl<Tab>
@@ -157,7 +173,37 @@ export default function AnalysisScreen() {
         onChange={setTab}
       />
 
-      <SegmentedControl<number> options={PERIODS} value={days} onChange={setDays} />
+      <SegmentedControl<number>
+        options={PERIODS}
+        value={days}
+        onChange={(value) => {
+          setDays(value);
+          // 期間を広げたときは今日までに戻す。過去を見たいのは1日ずつ辿るときなので
+          if (value !== 1) setAnchor(null);
+        }}
+      />
+
+      {single && (
+        <View style={styles.dateNav}>
+          <Pressable
+            onPress={() => setAnchor(addDays(to, -1))}
+            hitSlop={8}
+            style={styles.navButton}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.primary} />
+          </Pressable>
+          <Pressable onPress={() => setAnchor(null)}>
+            <Text style={styles.dateLabel}>{formatDayLabel(to)}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setAnchor(to >= todayKey ? to : addDays(to, 1))}
+            hitSlop={8}
+            style={[styles.navButton, to >= todayKey && styles.navDisabled]}
+          >
+            <Ionicons name="chevron-forward" size={22} color={colors.primary} />
+          </Pressable>
+        </View>
+      )}
 
       {recorded.length === 0 ? (
         <EmptyState
@@ -197,40 +243,69 @@ export default function AnalysisScreen() {
             </Text>
           </Card>
 
-          <Card>
-            <CardTitle>日別の摂取と消費</CardTitle>
-            <GroupedBarChart
-              data={rows.map((row) => ({
-                label: formatDayShort(row.date),
-                primary: row.intakeKcal,
-                secondary: row.burnKnown ? row.burnKcal : 0,
-              }))}
-            />
-          </Card>
+          {single && (
+            <Card>
+              <CardTitle>目標との差</CardTitle>
+              <Row
+                label="目標カロリー"
+                sub="食べ過ぎ調整や運動ぶんの加算は含みません"
+                value={`${profile.targetKcal.toLocaleString()} kcal`}
+              />
+              <Divider />
+              <Row
+                label="目標に対して"
+                value={
+                  <Text
+                    style={{
+                      color: totalIntake <= profile.targetKcal ? colors.success : colors.danger,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {formatSigned(totalIntake - profile.targetKcal)} kcal
+                  </Text>
+                }
+              />
+            </Card>
+          )}
 
-          <Card>
-            <CardTitle>日別データ</CardTitle>
-            {rows.map((row, index) => (
-              <View key={row.date}>
-                {index > 0 && <Divider />}
-                <Row
-                  label={formatDayLabel(row.date)}
-                  sub={
-                    row.intakeKcal === 0
-                      ? '記録なし'
-                      : row.burnKnown
-                        ? `摂取 ${Math.round(row.intakeKcal)} ／ 消費 ${Math.round(row.burnKcal)}`
-                        : `摂取 ${Math.round(row.intakeKcal)} ／ 消費 —`
-                  }
-                  value={
-                    row.intakeKcal > 0 && row.burnKnown
-                      ? `${formatSigned(row.intakeKcal - row.burnKcal)}`
-                      : '—'
-                  }
-                />
-              </View>
-            ))}
-          </Card>
+          {!single && (
+            <Card>
+              <CardTitle>日別の摂取と消費</CardTitle>
+              <GroupedBarChart
+                data={rows.map((row) => ({
+                  label: formatDayShort(row.date),
+                  primary: row.intakeKcal,
+                  secondary: row.burnKnown ? row.burnKcal : 0,
+                }))}
+              />
+            </Card>
+          )}
+
+          {!single && (
+            <Card>
+              <CardTitle>日別データ</CardTitle>
+              {rows.map((row, index) => (
+                <View key={row.date}>
+                  {index > 0 && <Divider />}
+                  <Row
+                    label={formatDayLabel(row.date)}
+                    sub={
+                      row.intakeKcal === 0
+                        ? '記録なし'
+                        : row.burnKnown
+                          ? `摂取 ${Math.round(row.intakeKcal)} ／ 消費 ${Math.round(row.burnKcal)}`
+                          : `摂取 ${Math.round(row.intakeKcal)} ／ 消費 —`
+                    }
+                    value={
+                      row.intakeKcal > 0 && row.burnKnown
+                        ? `${formatSigned(row.intakeKcal - row.burnKcal)}`
+                        : '—'
+                    }
+                  />
+                </View>
+              ))}
+            </Card>
+          )}
         </>
       ) : tab === 'pfc' ? (
         <>
@@ -278,53 +353,57 @@ export default function AnalysisScreen() {
         </>
       ) : tab === 'weight' ? (
         <>
-          <Card>
-            <CardTitle>体重の推移</CardTitle>
-            <LineChartView
-              data={rows.map((row) => ({
-                label: formatDayShort(row.date),
-                value: row.weightKg,
-              }))}
-              unit="kg"
-            />
-            {weights.length >= 2 && (
-              <Row
-                label="期間の増減"
-                value={`${formatSignedKg(
-                  weights[weights.length - 1].weightKg - weights[0].weightKg,
-                )} kg`}
-              />
-            )}
-            {weights.length > 0 && (
-              <Row
-                label="最新のBMI"
-                value={calcBmi(weights[weights.length - 1].weightKg, profile.heightCm).toFixed(1)}
-              />
-            )}
-          </Card>
-
-          <Card>
-            <CardTitle>関連データ</CardTitle>
-            <Row
-              label="摂取・消費カロリーも見る"
-              value={
-                <Switch
-                  value={showIntakeWithWeight}
-                  onValueChange={setShowIntakeWithWeight}
-                  trackColor={{ true: colors.primary }}
-                />
-              }
-            />
-            {showIntakeWithWeight && (
-              <GroupedBarChart
+          {!single && (
+            <Card>
+              <CardTitle>体重の推移</CardTitle>
+              <LineChartView
                 data={rows.map((row) => ({
                   label: formatDayShort(row.date),
-                  primary: row.intakeKcal,
-                  secondary: row.burnKnown ? row.burnKcal : 0,
+                  value: row.weightKg,
                 }))}
+                unit="kg"
               />
-            )}
-          </Card>
+              {weights.length >= 2 && (
+                <Row
+                  label="期間の増減"
+                  value={`${formatSignedKg(
+                    weights[weights.length - 1].weightKg - weights[0].weightKg,
+                  )} kg`}
+                />
+              )}
+              {weights.length > 0 && (
+                <Row
+                  label="最新のBMI"
+                  value={calcBmi(weights[weights.length - 1].weightKg, profile.heightCm).toFixed(1)}
+                />
+              )}
+            </Card>
+          )}
+
+          {!single && (
+            <Card>
+              <CardTitle>関連データ</CardTitle>
+              <Row
+                label="摂取・消費カロリーも見る"
+                value={
+                  <Switch
+                    value={showIntakeWithWeight}
+                    onValueChange={setShowIntakeWithWeight}
+                    trackColor={{ true: colors.primary }}
+                  />
+                }
+              />
+              {showIntakeWithWeight && (
+                <GroupedBarChart
+                  data={rows.map((row) => ({
+                    label: formatDayShort(row.date),
+                    primary: row.intakeKcal,
+                    secondary: row.burnKnown ? row.burnKcal : 0,
+                  }))}
+                />
+              )}
+            </Card>
+          )}
 
           <Card>
             <CardTitle>記録</CardTitle>
@@ -345,24 +424,56 @@ export default function AnalysisScreen() {
           </Card>
         </>
       ) : (
-        <Card>
-          <CardTitle>運動量</CardTitle>
-          <Row
-            label="運動による消費（合計）"
-            value={`${Math.round(rows.reduce((sum, row) => sum + row.exerciseKcal, 0)).toLocaleString()} kcal`}
-          />
-          <Divider />
-          {rows.map((row, index) => (
-            <View key={row.date}>
-              {index > 0 && <Divider />}
-              <Row
-                label={formatDayLabel(row.date)}
-                sub={row.steps != null ? `${row.steps.toLocaleString()}歩` : undefined}
-                value={row.exerciseKcal > 0 ? `${Math.round(row.exerciseKcal)} kcal` : '—'}
-              />
-            </View>
-          ))}
-        </Card>
+        <>
+          <Card>
+            <CardTitle>運動量</CardTitle>
+            <Row
+              label={single ? '運動による消費' : '運動による消費（合計）'}
+              value={`${Math.round(rows.reduce((sum, row) => sum + row.exerciseKcal, 0)).toLocaleString()} kcal`}
+            />
+            {single && rows[0]?.steps != null && (
+              <>
+                <Divider />
+                <Row label="歩数" value={`${rows[0].steps.toLocaleString()} 歩`} />
+              </>
+            )}
+            {!single && (
+              <>
+                <Divider />
+                {rows.map((row, index) => (
+                  <View key={row.date}>
+                    {index > 0 && <Divider />}
+                    <Row
+                      label={formatDayLabel(row.date)}
+                      sub={row.steps != null ? `${row.steps.toLocaleString()}歩` : undefined}
+                      value={row.exerciseKcal > 0 ? `${Math.round(row.exerciseKcal)} kcal` : '—'}
+                    />
+                  </View>
+                ))}
+              </>
+            )}
+          </Card>
+
+          {single && (
+            <Card>
+              <CardTitle>この日の運動</CardTitle>
+              {activities.length === 0 ? (
+                <Text style={styles.empty}>記録がありません</Text>
+              ) : (
+                activities.map((activity, index) => (
+                  <View key={activity.id}>
+                    {index > 0 && <Divider />}
+                    <Row
+                      label={activity.name ?? ACTIVITY_TYPE_LABELS[activity.type]}
+                      sub={describeActivity(activity)}
+                      value={activity.kcal != null ? `${Math.round(activity.kcal)} kcal` : '—'}
+                    />
+                  </View>
+                ))
+              )}
+            </Card>
+          )}
+        </>
       )}
     </Screen>
   );
@@ -391,6 +502,16 @@ function MacroRow({
   );
 }
 
+/** 「30分・5.0km」のように、記録された値だけを並べる */
+function describeActivity(activity: Activity): string | undefined {
+  const parts: string[] = [];
+  if (activity.durationMin != null) parts.push(`${activity.durationMin}分`);
+  if (activity.distanceKm != null) parts.push(`${activity.distanceKm}km`);
+  if (activity.reps != null) parts.push(`${activity.reps}回`);
+  if (activity.sets != null) parts.push(`${activity.sets}セット`);
+  return parts.length > 0 ? parts.join('・') : undefined;
+}
+
 function formatSigned(value: number): string {
   const rounded = Math.round(value);
   return rounded >= 0 ? `+${rounded.toLocaleString()}` : `−${Math.abs(rounded).toLocaleString()}`;
@@ -401,6 +522,15 @@ function formatSignedKg(value: number): string {
 }
 
 const styles = StyleSheet.create({
+  dateNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  navButton: { padding: spacing.xs },
+  navDisabled: { opacity: 0.3 },
+  dateLabel: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
   days: { fontSize: fontSize.xs, color: colors.textFaint },
   balanceRow: {
     flexDirection: 'row',

@@ -6,7 +6,7 @@ import { paceToTargetDate, type PaceKey } from '@/lib/targets';
 import type { ActivityLevel, Gender } from '@/lib/types';
 
 type OnboardingState = {
-  gender: Gender | null;
+  gender: Gender;
   birthDate: string | null;
   heightCm: string;
   weightKg: string;
@@ -22,7 +22,9 @@ type OnboardingState = {
 };
 
 const initial = {
-  gender: null,
+  // 画面では最初から「男性」が選ばれて見えるので、状態も合わせておく。
+  // null のままだと、選び直さないと次へ進めない
+  gender: 'male' as Gender,
   birthDate: null,
   heightCm: '',
   weightKg: '',

@@ -48,6 +48,12 @@
         }
       ],
       "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ウォーキングやランニングの距離を測るために、位置情報へのアクセスを許可してください。"
+        }
+      ],
       "react-native-health-connect",
       [
         "expo-build-properties",

@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   exerciseAddRatio: 100,
   mealPhotoRetentionDays: 0,
   labelPhotoRetentionDays: 180,
+  showMets: false,
   lastBackupAt: null,
   lastAutoBackupAt: null,
 };
@@ -109,6 +110,7 @@ type SettingsRow = {
   exercise_add_ratio: number;
   meal_photo_retention_days: number;
   label_photo_retention_days: number;
+  show_mets: number;
   last_backup_at: string | null;
   last_auto_backup_at: string | null;
 };
@@ -132,6 +134,7 @@ export async function getSettings(): Promise<Settings> {
     exerciseAddRatio: row.exercise_add_ratio,
     mealPhotoRetentionDays: row.meal_photo_retention_days,
     labelPhotoRetentionDays: row.label_photo_retention_days,
+    showMets: row.show_mets === 1,
     lastBackupAt: row.last_backup_at,
     lastAutoBackupAt: row.last_auto_backup_at,
   };
@@ -144,9 +147,9 @@ export async function saveSettings(settings: Settings): Promise<void> {
        id, day_start_hour,
        adjustment_enabled, adjustment_days, adjustment_cap_pct, adjustment_distribution,
        burn_source, add_exercise_to_target, exercise_add_ratio,
-       meal_photo_retention_days, label_photo_retention_days,
+       meal_photo_retention_days, label_photo_retention_days, show_mets,
        last_backup_at, last_auto_backup_at, updated_at
-     ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        day_start_hour = excluded.day_start_hour,
        adjustment_enabled = excluded.adjustment_enabled,
@@ -158,6 +161,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
        exercise_add_ratio = excluded.exercise_add_ratio,
        meal_photo_retention_days = excluded.meal_photo_retention_days,
        label_photo_retention_days = excluded.label_photo_retention_days,
+       show_mets = excluded.show_mets,
        last_backup_at = excluded.last_backup_at,
        last_auto_backup_at = excluded.last_auto_backup_at,
        updated_at = excluded.updated_at;`,
@@ -172,6 +176,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
       settings.exerciseAddRatio,
       settings.mealPhotoRetentionDays,
       settings.labelPhotoRetentionDays,
+      settings.showMets ? 1 : 0,
       settings.lastBackupAt,
       settings.lastAutoBackupAt,
       new Date().toISOString(),

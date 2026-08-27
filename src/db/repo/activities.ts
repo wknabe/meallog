@@ -1,6 +1,7 @@
 /** 運動記録（手入力）の読み書き */
 import { getDatabase } from '@/db';
 import type { DayKey } from '@/lib/day';
+import type { ExerciseDraft, ExerciseSet } from '@/lib/equipment';
 import type { ActivityType } from '@/lib/types';
 
 export type Activity = {
@@ -86,6 +87,141 @@ export async function listActivitiesInRange(from: DayKey, to: DayKey): Promise<A
 export async function deleteActivity(id: number): Promise<void> {
   const db = getDatabase();
   await db.runAsync('DELETE FROM activities WHERE id = ?;', [id]);
+}
+
+// ── 筋トレの種目別記録 ────────────────────────────
+
+/**
+ * 1回のトレーニングに、種目とそのセットをまとめて保存する。
+ * 種目だけ入って中身が無い、といった中途半端な形が残らないよう、
+ * 呼び出し側が開いたトランザクションの接続を受け取れるようにしている。
+ */
+export async function saveExercises(activityId: number, exercises: ExerciseDraft[]): Promise<void> {
+  const db = getDatabase();
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    // 作り直しの形にする。編集で種目が減った場合にも対応できる
+    await txn.runAsync('DELETE FROM activity_exercises WHERE activity_id = ?;', [activityId]);
+
+    const now = new Date().toISOString();
+    for (const [index, exercise] of exercises.entries()) {
+      const filled = exercise.sets.filter((set) => (set.reps ?? 0) > 0 || (set.weightKg ?? 0) > 0);
+      if (exercise.name.trim() === '' && filled.length === 0) continue;
+
+      const result = await txn.runAsync(
+        `INSERT INTO activity_exercises (activity_id, equipment_key, name, position, created_at)
+         VALUES (?, ?, ?, ?, ?);`,
+        [activityId, exercise.equipmentKey, exercise.name.trim(), index, now],
+      );
+      for (const [setIndex, set] of filled.entries()) {
+        await txn.runAsync(
+          `INSERT INTO activity_sets (exercise_id, position, weight_kg, reps)
+           VALUES (?, ?, ?, ?);`,
+          [result.lastInsertRowId, setIndex, set.weightKg, set.reps],
+        );
+      }
+    }
+  });
+}
+
+export type ExerciseRecord = {
+  id: number;
+  equipmentKey: string | null;
+  name: string;
+  sets: ExerciseSet[];
+};
+
+export async function listExercises(activityId: number): Promise<ExerciseRecord[]> {
+  const db = getDatabase();
+  const exercises = await db.getAllAsync<{
+    id: number;
+    equipment_key: string | null;
+    name: string;
+  }>(
+    'SELECT id, equipment_key, name FROM activity_exercises WHERE activity_id = ? ORDER BY position ASC;',
+    [activityId],
+  );
+  if (exercises.length === 0) return [];
+
+  const placeholders = exercises.map(() => '?').join(',');
+  const sets = await db.getAllAsync<{
+    exercise_id: number;
+    weight_kg: number | null;
+    reps: number | null;
+  }>(
+    `SELECT exercise_id, weight_kg, reps FROM activity_sets
+     WHERE exercise_id IN (${placeholders}) ORDER BY position ASC;`,
+    exercises.map((row) => row.id),
+  );
+
+  const byExercise = new Map<number, ExerciseSet[]>();
+  for (const row of sets) {
+    const list = byExercise.get(row.exercise_id) ?? [];
+    list.push({ weightKg: row.weight_kg, reps: row.reps });
+    byExercise.set(row.exercise_id, list);
+  }
+
+  return exercises.map((row) => ({
+    id: row.id,
+    equipmentKey: row.equipment_key,
+    name: row.name,
+    sets: byExercise.get(row.id) ?? [],
+  }));
+}
+
+/**
+ * ある種目の前回の記録を探す。「前回より上がったか」を出すために使う。
+ * 同じ日の記録は比較対象にしない（同じトレーニングの続きなので）。
+ */
+export async function findPreviousExercise(
+  equipmentKey: string,
+  beforeDate: DayKey,
+): Promise<{ date: DayKey; sets: ExerciseSet[] } | null> {
+  const db = getDatabase();
+  const row = await db.getFirstAsync<{ id: number; date: string }>(
+    `SELECT e.id, a.date FROM activity_exercises e
+     JOIN activities a ON a.id = e.activity_id
+     WHERE e.equipment_key = ? AND a.date < ?
+     ORDER BY a.date DESC, e.id DESC LIMIT 1;`,
+    [equipmentKey, beforeDate],
+  );
+  if (!row) return null;
+
+  const sets = await db.getAllAsync<{ weight_kg: number | null; reps: number | null }>(
+    'SELECT weight_kg, reps FROM activity_sets WHERE exercise_id = ? ORDER BY position ASC;',
+    [row.id],
+  );
+  return {
+    date: row.date,
+    sets: sets.map((set) => ({ weightKg: set.weight_kg, reps: set.reps })),
+  };
+}
+
+// ── GPSの軌跡 ────────────────────────────────────
+
+export type TrackPoint = { lat: number; lng: number; recordedAt: string };
+
+export async function saveTrack(activityId: number, points: TrackPoint[]): Promise<void> {
+  if (points.length === 0) return;
+  const db = getDatabase();
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync('DELETE FROM activity_tracks WHERE activity_id = ?;', [activityId]);
+    for (const [index, point] of points.entries()) {
+      await txn.runAsync(
+        `INSERT INTO activity_tracks (activity_id, position, lat, lng, recorded_at)
+         VALUES (?, ?, ?, ?, ?);`,
+        [activityId, index, point.lat, point.lng, point.recordedAt],
+      );
+    }
+  });
+}
+
+export async function listTrack(activityId: number): Promise<TrackPoint[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<{ lat: number; lng: number; recorded_at: string }>(
+    'SELECT lat, lng, recorded_at FROM activity_tracks WHERE activity_id = ? ORDER BY position ASC;',
+    [activityId],
+  );
+  return rows.map((row) => ({ lat: row.lat, lng: row.lng, recordedAt: row.recorded_at }));
 }
 
 /** その日の運動による消費カロリーの合計 */

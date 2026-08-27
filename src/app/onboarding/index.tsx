@@ -11,8 +11,7 @@ export default function BasicInfoStep() {
   const router = useRouter();
   const { gender, birthDate, heightCm, weightKg, set } = useOnboardingStore();
 
-  const canProceed =
-    gender != null && birthDate != null && Number(heightCm) > 0 && Number(weightKg) > 0;
+  const canProceed = birthDate != null && Number(heightCm) > 0 && Number(weightKg) > 0;
 
   // 年齢の下限・上限（現実的な範囲に収めて入力ミスを防ぐ）
   const today = new Date();
@@ -33,7 +32,7 @@ export default function BasicInfoStep() {
             { value: 'male', label: '男性' },
             { value: 'female', label: '女性' },
           ]}
-          value={gender ?? 'male'}
+          value={gender}
           onChange={(value) => set({ gender: value })}
         />
       </Field>
@@ -44,6 +43,8 @@ export default function BasicInfoStep() {
           onChange={(value) => set({ birthDate: value })}
           minimumDate={minBirth}
           maximumDate={maxBirth}
+          // 何十年も前へ遡るので、カレンダーより年・月・日のリールのほうが速い
+          wheel
         />
       </Field>
 
