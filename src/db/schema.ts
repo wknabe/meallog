@@ -379,10 +379,44 @@ CREATE TABLE activity_tracks (
 CREATE INDEX idx_activity_tracks_activity ON activity_tracks(activity_id, position);
 `;
 
+const V5 = `
+-- 端末の健康アプリ（Health Connect / ヘルスケア）から自動で取り込むか
+ALTER TABLE settings ADD COLUMN auto_sync_health INTEGER NOT NULL DEFAULT 1;
+-- 最後に取り込んだ時刻。短い間隔で何度も読みに行かないため
+ALTER TABLE settings ADD COLUMN last_health_sync_at TEXT;
+`;
+
+const V6 = `
+-- 市販商品のカタログ（Open Food Facts 由来）。
+--
+-- foods に直接入れない理由:
+--   1. 4万件をビタミン・ミネラルまで持つ30列のテーブルに入れると初回起動が重い
+--   2. 商品の栄養表示にビタミン類はほとんど無く、列の大半が0で埋まる
+--   3. バックアップに4万件が乗ってしまう
+-- 検索でヒットしたものだけを foods へ写して使う（手で登録した商品と同じ扱いになる）。
+CREATE TABLE product_catalog (
+  barcode     TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  kana        TEXT,                 -- 検索用。記号や空白を除いた名称
+  maker       TEXT,
+  quantity    TEXT,                 -- '350 ml' のような内容量の表記
+  serving_g   REAL,                 -- 1食あたりのグラム数。分かるものだけ
+  kcal        REAL NOT NULL,
+  protein_g   REAL NOT NULL DEFAULT 0,
+  fat_g       REAL NOT NULL DEFAULT 0,
+  carb_g      REAL NOT NULL DEFAULT 0,
+  fiber_g     REAL,
+  sugar_g     REAL,
+  salt_g      REAL
+);
+CREATE INDEX idx_product_catalog_name ON product_catalog(name);
+CREATE INDEX idx_product_catalog_kana ON product_catalog(kana);
+`;
+
 /**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4];
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6];
 
 export const LATEST_VERSION = MIGRATIONS.length;

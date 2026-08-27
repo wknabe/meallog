@@ -2,11 +2,12 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { stackScreenOptions } from '@/components/ui/stack-screen-options';
+import { today } from '@/lib/day';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
@@ -16,10 +17,31 @@ export default function RootLayout() {
   const ready = useAppStore((s) => s.ready);
   const bootError = useAppStore((s) => s.bootError);
   const bootstrap = useAppStore((s) => s.bootstrap);
+  const syncHealth = useAppStore((s) => s.syncHealth);
+  const dayStartHour = useAppStore((s) => s.settings.dayStartHour);
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // 端末の健康アプリから歩数などを取り込む。
+  // 起動したときと、他のアプリから戻ってきたときに試す。
+  // 取り込めない理由（未対応・未許可・間隔が短い）は syncHealth 側で判断して黙って諦める
+  useEffect(() => {
+    if (!ready) return;
+
+    const sync = () => {
+      void syncHealth(today(dayStartHour)).catch(() => {
+        // 自動取り込みの失敗で画面を止めない
+      });
+    };
+
+    sync();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+    return () => subscription.remove();
+  }, [ready, syncHealth, dayStartHour]);
 
   useEffect(() => {
     // 失敗したときもスプラッシュを閉じないと、案内が見えないまま固まる

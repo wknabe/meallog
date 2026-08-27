@@ -19,8 +19,10 @@ import { listDailyActivityKcal } from '@/db/repo/activities';
 import { countFoods } from '@/db/repo/foods';
 import { listDailyTotals } from '@/db/repo/meals';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
+import { PRODUCT_DATA_SOURCE } from '@/db/seed/products';
 import { exportBackup, importBackup, shareBackup } from '@/lib/backup';
 import { exerciseBonus } from '@/lib/energy';
+import { HEALTH_SOURCE_NAME } from '@/lib/health';
 import { formatBytes, photoStorageBytes } from '@/lib/photos';
 import { addDays, calcAge, formatDayLabel, today } from '@/lib/day';
 import { computeAdjustment, describeAdjustment } from '@/lib/adjustment';
@@ -485,17 +487,34 @@ export default function SettingsScreen() {
 
         <Field
           label="どちらの値を使うか"
-          hint="スマートウォッチのデータがない日は、自動で推定値に切り替わります"
+          hint={`${HEALTH_SOURCE_NAME}のデータがない日は、自動で推定値に切り替わります`}
         >
           <SegmentedControl<BurnSource>
             options={[
               { value: 'estimate', label: '推定値' },
-              { value: 'watch', label: 'ウォッチ' },
+              { value: 'watch', label: '実測値' },
             ]}
             value={settings.burnSource}
             onChange={(value) => updateSettings({ burnSource: value })}
           />
         </Field>
+
+        <Row
+          label={`${HEALTH_SOURCE_NAME}から自動で取り込む`}
+          sub="アプリを開いたときに、歩数や消費カロリーを裏で取り込みます"
+          value={
+            <Switch
+              value={settings.autoSyncHealth}
+              onValueChange={(value) => updateSettings({ autoSyncHealth: value })}
+              trackColor={{ true: colors.primary }}
+            />
+          }
+        />
+        {settings.autoSyncHealth && settings.lastHealthSyncAt != null && (
+          <Text style={styles.hint}>
+            最後に取り込んだのは {formatDateTime(settings.lastHealthSyncAt)} です
+          </Text>
+        )}
 
         <Row
           label="運動した分を目標に加算する"
@@ -614,8 +633,14 @@ export default function SettingsScreen() {
       {/* ── データ ── */}
       <Card>
         <CardTitle>食品データ</CardTitle>
-        <Row label="収録件数" value={foodCount != null ? `${foodCount.toLocaleString()}件` : '—'} />
+        <Row label="食材" value={foodCount != null ? `${foodCount.toLocaleString()}件` : '—'} />
         <Text style={styles.source}>出典: {FOOD_DATA_SOURCE}</Text>
+        <Divider />
+        <Row label="市販商品" value={`${PRODUCT_DATA_SOURCE.count.toLocaleString()}件`} />
+        <Text style={styles.source}>
+          出典: {PRODUCT_DATA_SOURCE.name}（{PRODUCT_DATA_SOURCE.licence}）
+        </Text>
+        <Text style={styles.source}>{PRODUCT_DATA_SOURCE.url}</Text>
       </Card>
 
       <Card>
@@ -626,7 +651,17 @@ export default function SettingsScreen() {
   );
 }
 
+/** 「8月27日 14:05」の形。最後に取り込んだ時刻を出すために使う */
+function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${String(
+    date.getMinutes(),
+  ).padStart(2, '0')}`;
+}
+
 const styles = StyleSheet.create({
+  hint: { fontSize: fontSize.xs, color: colors.textFaint },
   description: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
   preview: {
     backgroundColor: colors.primaryLight,

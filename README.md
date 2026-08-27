@@ -12,8 +12,9 @@ Expo（React Native）製で、データはすべて端末内の SQLite に保�
 |---|---|
 | ホーム | 摂取カロリー・PFC・消費カロリー・体重・「今日あと何を食べればいい？」 |
 | 食事 | 朝昼夕間食の記録（撮影／写真選択／検索／手入力／よく食べる食事）、履歴、栄養の内訳 |
-| 運動 | 手入力の運動記録（METsから消費カロリーを推定）、スマートウォッチとの比較 |
+| 運動 | 運動記録（メッツまたは種目ごとの重さ×回数×セット）、GPSでの距離計測、ヘルスアプリとの比較 |
 | 献立 | 気分4軸と直近の栄養バランスからの献立作成、冷蔵庫、1週間献立、買い物リスト |
+| 商品 | 同梱した市販商品カタログの検索、成分表の撮影＋手入力での登録 |
 | 分析 | カロリー／PFC／体重／運動量を1週間〜1ヶ月で比較 |
 | 設定 | プロフィール、目標、食べ過ぎ調整、写真の保存期間、バックアップ |
 
@@ -33,17 +34,31 @@ npm test           # 計算ロジックの単体テスト
 ```bash
 node tools/build-food-seed.mjs   # 成分表 + 別名・常用単位 → assets/data/
 node tools/build-dish-seed.mjs   # 料理361品 → assets/data/dishes.json（食品番号を検証）
+node tools/build-product-seed.mjs <products.csv.gz>  # 市販商品 → assets/data/products.json
 node tools/verify-schema.mjs     # スキーマとデータ投入をNode組み込みSQLiteで検証
 ```
 
 `tools/build-food-seed.mjs` は `data/raw/seibunhyo_honhyo.xlsx` を読みます。
 このファイルは Git に含めていないので、初回は文部科学省のサイトから取得してください。
 
+市販商品は Open Food Facts の公開ダンプ
+（`https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz`、約1.3GB）
+から日本の商品だけを抜き出しています。各社の通販サイトを巡回しないのは、
+Open Food Facts が ODbL で再配布を明示的に許可しているのに対し、
+小売各社は規約でデータの収集・再配布を禁じていることが多いためです。
+日本の商品で栄養値まで入っているものは4,500件ほどで、網羅はしていません。
+
 出典: 日本食品標準成分表（八訂）増補2023年（文部科学省）
+出典: Open Food Facts（Open Database License v1.0）https://world.openfoodfacts.org/
 
-## スマートウォッチ連携（Android / Health Connect）
+## ヘルスアプリ連携
 
-Health Connect はネイティブの機能のため、**Expo Go では動きません**。
+Android は Health Connect、iOS は HealthKit から歩数・距離・消費カロリー・睡眠を読みます。
+どちらも他のアプリ（Google Fit、各メーカーの健康アプリ、スマートウォッチ）の値を集約しているので、
+ウォッチを持っていなくてもスマホが数えた歩数が入ります。
+アプリを開いたときに自動で取り込みます（15分間隔、設定でオフにできます）。
+
+どちらもネイティブの機能のため、**Expo Go では動きません**。
 専用のアプリ（development build）をビルドして端末に入れる必要があります。
 
 ```bash
@@ -60,8 +75,8 @@ eas build --profile development --platform android
 Health Connect が Android 8.0 以上を必要とするため、`minSdkVersion` を 26 にしています
 （`app.json` の expo-build-properties）。
 
-iPhone（HealthKit）は Apple Developer Program への登録が必要なため未対応です。
-コード側は `src/lib/health.ts` に窓口をまとめてあり、iOS 対応はそこに足せます。
+iOS 側のコードは書いてありますが、実機で動かすには Apple Developer Program への登録が必要で、
+まだ検証できていません。窓口は `src/lib/health.ts` にまとめてあります。
 
 ## 構成
 

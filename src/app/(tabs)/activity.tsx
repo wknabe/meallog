@@ -19,6 +19,7 @@ import { useTodayKey } from '@/hooks/use-today';
 import { addDays, calcAge, formatDayLabel } from '@/lib/day';
 import { estimateBurn } from '@/lib/energy';
 import {
+  HEALTH_SOURCE_NAME,
   availabilityMessage,
   checkAvailability,
   openHealthSettings,
@@ -196,7 +197,7 @@ export default function ActivityScreen() {
             </View>
 
             <View style={styles.watchBox}>
-              <Text style={styles.boxTitle}>スマートウォッチ</Text>
+              <Text style={styles.boxTitle}>{HEALTH_SOURCE_NAME}</Text>
               {health ? (
                 <>
                   <Row label="歩数" value={`${(health.steps ?? 0).toLocaleString()} 歩`} />
@@ -208,16 +209,26 @@ export default function ActivityScreen() {
                   />
                 </>
               ) : (
-                <Text style={styles.empty}>連携するとここに実測値が出ます</Text>
+                <Text style={styles.empty}>
+                  連携するとここに実測値が出ます。スマートウォッチを持っていなくても、
+                  スマホが数えた歩数を取り込めます。
+                </Text>
               )}
 
               {availability?.available ? (
-                <Button
-                  title={syncing ? '取り込み中…' : 'スマートウォッチから取り込む'}
-                  variant="secondary"
-                  onPress={() => void syncHealth()}
-                  disabled={syncing}
-                />
+                <>
+                  <Button
+                    title={syncing ? '取り込み中…' : `${HEALTH_SOURCE_NAME}から取り込む`}
+                    variant="secondary"
+                    onPress={() => void syncHealth()}
+                    disabled={syncing}
+                  />
+                  {settings.autoSyncHealth && (
+                    <Text style={styles.note}>
+                      アプリを開いたときにも自動で取り込みます（設定で変えられます）
+                    </Text>
+                  )}
+                </>
               ) : (
                 availability != null && (
                   <>
@@ -235,7 +246,7 @@ export default function ActivityScreen() {
               )}
             </View>
 
-            <Text style={styles.note}>※ 推定値とスマートウォッチの値は合算していません</Text>
+            <Text style={styles.note}>※ 推定値と{HEALTH_SOURCE_NAME}の値は合算していません</Text>
           </Card>
         </>
       ) : history.length === 0 ? (

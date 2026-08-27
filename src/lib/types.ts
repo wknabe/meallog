@@ -38,6 +38,9 @@ export type Settings = {
   exerciseAddRatio: number; // 100|50
   /** 運動の内容にメッツの数字を出すか。false なら体感の言葉で出す */
   showMets: boolean;
+  /** 端末の健康アプリから自動で取り込むか */
+  autoSyncHealth: boolean;
+  lastHealthSyncAt: string | null;
   mealPhotoRetentionDays: number; // 0=無期限
   labelPhotoRetentionDays: number; // 0=無期限, -1=保存しない
   lastBackupAt: string | null;

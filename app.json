@@ -15,6 +15,15 @@
     },
     "android": {
       "package": "com.wknabe.meallog",
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_SLEEP"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E8F5EE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -55,6 +64,13 @@
         }
       ],
       "react-native-health-connect",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "歩数や消費カロリーを取り込むために、ヘルスケアの読み取りを許可してください。",
+          "NSHealthUpdateUsageDescription": "記録した運動をヘルスケアに書き戻すために使います。"
+        }
+      ],
       [
         "expo-build-properties",
         {

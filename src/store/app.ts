@@ -4,7 +4,8 @@
  */
 import { create } from 'zustand';
 
-import { initDatabase } from '@/db';
+import { getDatabase, initDatabase } from '@/db';
+import { seedProductCatalog } from '@/db/seed/products';
 import {
   getProfile,
   getSettings,
@@ -15,6 +16,8 @@ import {
 import { clearPhotoPaths } from '@/db/repo/meals';
 import { getLatestWeight } from '@/db/repo/weights';
 import { runAutoBackup } from '@/lib/backup';
+import type { DayKey } from '@/lib/day';
+import { syncTodayHealth } from '@/lib/health-sync';
 import { purgeExpiredPhotos } from '@/lib/photos';
 import type { Profile, Settings } from '@/lib/types';
 
@@ -32,6 +35,8 @@ type AppState = {
   refreshWeight: () => Promise<void>;
   updateProfile: (profile: Profile) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
+  /** 端末の健康アプリから今日ぶんを取り込む。取り込めたら true */
+  syncHealth: (date: DayKey, options?: { force?: boolean }) => Promise<boolean>;
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -74,6 +79,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         console.warn('期限切れ画像の削除に失敗しました', error);
       }
 
+      // 市販商品のカタログを裏で入れる。4千件あるので起動を待たせない。
+      // 途中で閉じられても、次の起動で続きから入る
+      void seedProductCatalog(getDatabase()).catch((error) =>
+        console.warn('商品カタログの投入に失敗しました', error),
+      );
+
       // 週1回、端末内に記録データを書き出しておく（アプリ側の不具合からの復旧用）。
       // 起動を待たせないよう、結果は待たずに進める
       void runAutoBackup(settings.lastAutoBackupAt)
@@ -107,5 +118,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const next = { ...get().settings, ...patch };
     await saveSettings(next);
     set({ settings: next });
+  },
+
+  syncHealth: async (date, options = {}) => {
+    const result = await syncTodayHealth(date, get().settings, options);
+    if (!result.synced) return false;
+    // 取り込めたときだけ時刻を残す。失敗を成功として記録すると次の機会を潰してしまう
+    await get().updateSettings({ lastHealthSyncAt: result.lastSyncAt });
+    return true;
   },
 }));
