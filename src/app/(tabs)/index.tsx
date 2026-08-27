@@ -7,6 +7,7 @@ import { ScreenHeader } from '@/components/ui/header';
 import { ProgressRing } from '@/components/ui/charts';
 import { Card, CardTitle, Divider, ProgressBar, Row, Screen } from '@/components/ui/layout';
 import {
+  effectiveSteps,
   getActivityKcal,
   getHealthDaily,
   listDailyActivityKcal,
@@ -126,6 +127,8 @@ export default function HomeScreen() {
   const adjustedTargetKcal = adjustedTarget(profile.targetKcal + bonusKcal, adjustmentKcal);
 
   const overTarget = adjustedTargetKcal > 0 && intakeKcal > adjustedTargetKcal;
+  // ヘルスアプリの値を優先し、無ければ手で入れた歩数を出す
+  const stepsToday = effectiveSteps(health);
 
   const remaining = {
     kcal: adjustedTargetKcal - intakeKcal,
@@ -253,12 +256,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {(exerciseKcal > 0 || health?.steps != null) && (
+        {(exerciseKcal > 0 || stepsToday != null) && (
           <>
             <Divider />
-            {health?.steps != null && (
-              <Row label="歩数" value={`${health.steps.toLocaleString()} 歩`} />
-            )}
+            {stepsToday != null && <Row label="歩数" value={`${stepsToday.toLocaleString()} 歩`} />}
             {exerciseKcal > 0 && (
               <Row label="運動による消費" value={`${Math.round(exerciseKcal)} kcal`} />
             )}

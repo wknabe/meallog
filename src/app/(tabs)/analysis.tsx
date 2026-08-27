@@ -8,6 +8,7 @@ import { SegmentedControl } from '@/components/ui/controls';
 import { ScreenHeader } from '@/components/ui/header';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
 import {
+  effectiveSteps,
   listActivities,
   listDailyActivityKcal,
   listHealthDaily,
@@ -127,7 +128,7 @@ export default function AnalysisScreen() {
             burnKcal,
             burnKnown: useWatch || weightForDay != null,
             exerciseKcal: activityByDate.get(date) ?? 0,
-            steps: healthByDate.get(date)?.steps ?? null,
+            steps: effectiveSteps(healthByDate.get(date) ?? null),
             weightKg: weight,
           };
         });

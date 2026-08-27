@@ -253,7 +253,10 @@ export async function listDailyActivityKcal(
 
 export type HealthDaily = {
   date: DayKey;
+  /** ヘルスアプリから取り込んだ歩数 */
   steps: number | null;
+  /** 手で入力した歩数。ヘルスアプリの値とは別に持つ */
+  manualSteps: number | null;
   distanceKm: number | null;
   activeKcal: number | null;
   totalKcal: number | null;
@@ -268,6 +271,7 @@ export async function getHealthDaily(date: DayKey): Promise<HealthDaily | null> 
   const row = await db.getFirstAsync<{
     date: string;
     steps: number | null;
+    manual_steps: number | null;
     distance_km: number | null;
     active_kcal: number | null;
     total_kcal: number | null;
@@ -280,6 +284,7 @@ export async function getHealthDaily(date: DayKey): Promise<HealthDaily | null> 
   return {
     date: row.date,
     steps: row.steps,
+    manualSteps: row.manual_steps,
     distanceKm: row.distance_km,
     activeKcal: row.active_kcal,
     totalKcal: row.total_kcal,
@@ -296,6 +301,7 @@ export async function listHealthDaily(from: DayKey, to: DayKey): Promise<HealthD
   const rows = await db.getAllAsync<{
     date: string;
     steps: number | null;
+    manual_steps: number | null;
     distance_km: number | null;
     active_kcal: number | null;
     total_kcal: number | null;
@@ -307,6 +313,7 @@ export async function listHealthDaily(from: DayKey, to: DayKey): Promise<HealthD
   return rows.map((row) => ({
     date: row.date,
     steps: row.steps,
+    manualSteps: row.manual_steps,
     distanceKm: row.distance_km,
     activeKcal: row.active_kcal,
     totalKcal: row.total_kcal,
@@ -318,12 +325,33 @@ export async function listHealthDaily(from: DayKey, to: DayKey): Promise<HealthD
 }
 
 /**
+ * 手で入力した歩数を保存する。
+ * ヘルスアプリから取り込んだ steps は触らないので、自動取り込みで消えることはない。
+ */
+export async function saveManualSteps(date: DayKey, steps: number | null): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync(
+    `INSERT INTO health_daily (date, manual_steps, synced_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(date) DO UPDATE SET manual_steps = excluded.manual_steps;`,
+    [date, steps, new Date().toISOString()],
+  );
+}
+
+/** その日の歩数。ヘルスアプリの値を優先し、無ければ手入力を使う */
+export function effectiveSteps(health: HealthDaily | null): number | null {
+  if (health == null) return null;
+  return health.steps ?? health.manualSteps;
+}
+
+/**
  * スマートウォッチから取り込んだ1日ぶんのデータを保存する。
  * 推定値とは別テーブルに入れ、合算しない（企画書の方針をテーブルで担保している）。
  */
 export async function saveHealthDaily(
   date: DayKey,
-  values: Omit<HealthDaily, 'date' | 'source'>,
+  // 手入力の歩数はここでは触らない。取り込みで消さないため
+  values: Omit<HealthDaily, 'date' | 'source' | 'manualSteps'>,
   source: string,
 ): Promise<void> {
   const db = getDatabase();

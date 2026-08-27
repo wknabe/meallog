@@ -3,7 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button, SegmentedControl } from '@/components/ui/controls';
+import { Button, Field, NumberInput, SegmentedControl } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
 import { ScreenHeader } from '@/components/ui/header';
 import {
@@ -12,6 +12,7 @@ import {
   listActivities,
   listActivitiesInRange,
   saveHealthDaily,
+  saveManualSteps,
   type Activity,
   type HealthDaily,
 } from '@/db/repo/activities';
@@ -47,6 +48,8 @@ export default function ActivityScreen() {
   const [health, setHealth] = useState<HealthDaily | null>(null);
   const [availability, setAvailability] = useState<HealthAvailability | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [stepsText, setStepsText] = useState('');
+  const [savingSteps, setSavingSteps] = useState(false);
 
   const reload = useCallback(async () => {
     const [todayList, historyList, healthRow] = await Promise.all([
@@ -57,7 +60,31 @@ export default function ActivityScreen() {
     setActivities(todayList);
     setHistory(historyList);
     setHealth(healthRow);
+    // 入力中の値は上書きしない。開き直したときだけ保存済みの値を入れる
+    setStepsText((previous) =>
+      previous === '' && healthRow?.manualSteps != null ? String(healthRow.manualSteps) : previous,
+    );
   }, [date]);
+
+  /** 手で入れた歩数を保存する */
+  async function handleSaveSteps() {
+    if (savingSteps) return;
+    const value = Number(stepsText);
+    if (!Number.isFinite(value) || value < 0) {
+      Alert.alert('歩数を確かめてください', '0以上の数字を入れてください。');
+      return;
+    }
+    setSavingSteps(true);
+    try {
+      await saveManualSteps(date, Math.round(value));
+      await reload();
+    } catch (error) {
+      console.error('歩数の保存に失敗しました', error);
+      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+    } finally {
+      setSavingSteps(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -168,6 +195,52 @@ export default function ActivityScreen() {
             title="運動を追加"
             onPress={() => router.push({ pathname: '/workout/new', params: { date } })}
           />
+
+          {/* 歩数。ヘルスアプリが使えないときのために手でも入れられるようにする */}
+          <Card>
+            <CardTitle
+              right={
+                health?.steps != null ? (
+                  <Text style={styles.fromHealth}>{HEALTH_SOURCE_NAME}から取得</Text>
+                ) : undefined
+              }
+            >
+              歩数
+            </CardTitle>
+
+            {health?.steps != null ? (
+              <>
+                <Row label="今日の歩数" value={`${health.steps.toLocaleString()} 歩`} />
+                {health.manualSteps != null && (
+                  <Text style={styles.note}>
+                    手で入力した {health.manualSteps.toLocaleString()} 歩は残していますが、
+                    取り込んだ値のほうを使います。
+                  </Text>
+                )}
+              </>
+            ) : (
+              <>
+                <Field label="今日の歩数">
+                  <NumberInput
+                    value={stepsText}
+                    onChangeText={setStepsText}
+                    unit="歩"
+                    placeholder="8000"
+                  />
+                </Field>
+                <Button
+                  title={savingSteps ? '保存中…' : '歩数を記録する'}
+                  variant="secondary"
+                  onPress={() => void handleSaveSteps()}
+                  disabled={savingSteps || stepsText.trim() === ''}
+                />
+                <Text style={styles.note}>
+                  スマホの歩数計や他のアプリの数字を、そのまま入れて構いません。
+                  {HEALTH_SOURCE_NAME}と連携すると、こちらは自動で入ります。
+                </Text>
+              </>
+            )}
+          </Card>
 
           {/* 推定値とスマートウォッチの値を並べて出す。合算はしない */}
           <Card>
@@ -306,5 +379,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   boxTitle: { fontSize: fontSize.sm, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  fromHealth: { fontSize: fontSize.xs, color: colors.textFaint },
   note: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 16 },
 });

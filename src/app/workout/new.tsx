@@ -47,6 +47,18 @@ const METS_BY_TYPE: Record<ActivityType, string[]> = {
   other: ['cycling', 'swim', 'stretch', 'housework'],
 };
 
+/**
+ * 種別ごとの入力例。
+ * どの種別でも「例: 腹筋ローラー」だと、歩いた記録に何を書けばよいのか分からない。
+ * 時間や距離も、歩きと走りでは目安が違うので分けている。
+ */
+const EXAMPLES: Record<ActivityType, { name: string; minutes: string; distance: string }> = {
+  walk: { name: '例: 散歩、通勤の徒歩', minutes: '40', distance: '3.0' },
+  run: { name: '例: マラソン、河川敷ラン', minutes: '30', distance: '5.0' },
+  strength: { name: '例: 腹筋ローラー、懸垂', minutes: '45', distance: '' },
+  other: { name: '例: ヨガ、自転車通勤', minutes: '30', distance: '' },
+};
+
 /** 筋トレの記録の仕方 */
 type StrengthMode = 'simple' | 'detail';
 
@@ -211,14 +223,19 @@ export default function NewWorkoutScreen() {
           <TextField
             value={name}
             onChangeText={setName}
-            placeholder={usingExercises ? '例: 胸の日' : '例: 腹筋ローラー'}
+            placeholder={usingExercises ? '例: 胸の日、脚の日' : EXAMPLES[type].name}
           />
         </Field>
 
         <View style={styles.row}>
           <View style={styles.col}>
             <Field label="時間">
-              <NumberInput value={minutes} onChangeText={setMinutes} unit="分" placeholder="30" />
+              <NumberInput
+                value={minutes}
+                onChangeText={setMinutes}
+                unit="分"
+                placeholder={EXAMPLES[type].minutes}
+              />
             </Field>
           </View>
           {(type === 'run' || type === 'walk') && (
@@ -228,7 +245,7 @@ export default function NewWorkoutScreen() {
                   value={distance}
                   onChangeText={setDistance}
                   unit="km"
-                  placeholder="5.0"
+                  placeholder={EXAMPLES[type].distance}
                 />
               </Field>
             </View>

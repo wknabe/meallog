@@ -413,10 +413,17 @@ CREATE INDEX idx_product_catalog_name ON product_catalog(name);
 CREATE INDEX idx_product_catalog_kana ON product_catalog(kana);
 `;
 
+const V7 = `
+-- 手で入力した歩数。
+-- ヘルスアプリから取り込んだ steps とは別の列にする。
+-- 同じ列に入れると、次の自動取り込みで手入力が消えてしまう。
+ALTER TABLE health_daily ADD COLUMN manual_steps INTEGER;
+`;
+
 /**
  * マイグレーション。配列の添字+1が user_version になる。
  * 既存の要素は絶対に書き換えず、変更は末尾への追加で行う。
  */
-export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6];
+export const MIGRATIONS: string[] = [V1, V2, V3, V4, V5, V6, V7];
 
 export const LATEST_VERSION = MIGRATIONS.length;
