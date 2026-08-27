@@ -63,7 +63,7 @@ async function dumpTables(db: SQLiteDatabase): Promise<BackupFile['tables']> {
   for (const table of TABLES) {
     const filter = SEED_FILTERS[table];
     const rows = await db.getAllAsync<Record<string, unknown>>(
-      `SELECT * FROM ${table}${filter ? ` WHERE ${filter}` : ''};`
+      `SELECT * FROM ${table}${filter ? ` WHERE ${filter}` : ''};`,
     );
     tables[table] = rows;
   }
@@ -187,7 +187,7 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
         await db.runAsync(
           `INSERT OR REPLACE INTO ${table} (${columns.join(',')})
            VALUES (${columns.map(() => '?').join(',')});`,
-          columns.map((column) => row[column] as string | number | null)
+          columns.map((column) => row[column] as string | number | null),
         );
         restored++;
       }
@@ -217,7 +217,8 @@ export function listLocalBackups(): { name: string; uri: string; size: number }[
   const dir = backupDirectory();
   const files: { name: string; uri: string; size: number }[] = [];
   for (const entry of dir.list()) {
-    if (entry instanceof File) files.push({ name: entry.name, uri: entry.uri, size: entry.size ?? 0 });
+    if (entry instanceof File)
+      files.push({ name: entry.name, uri: entry.uri, size: entry.size ?? 0 });
   }
   return files.sort((a, b) => b.name.localeCompare(a.name));
 }

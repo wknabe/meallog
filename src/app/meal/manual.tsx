@@ -68,7 +68,12 @@ export default function ManualEntryScreen() {
           <TextField value={name} onChangeText={setName} placeholder="例: コンビニのサラダチキン" />
         </Field>
         <Field label="重さ（任意）" hint="買い物リストや在庫の計算に使います">
-          <NumberInput value={grams} onChangeText={setGrams} unit="g" placeholder="未入力でも記録できます" />
+          <NumberInput
+            value={grams}
+            onChangeText={setGrams}
+            unit="g"
+            placeholder="未入力でも記録できます"
+          />
         </Field>
       </Card>
 
@@ -80,8 +85,14 @@ export default function ManualEntryScreen() {
             kcal.trim() === ''
               ? `未入力ならPFCから計算します（現在 ${Math.round(estimated)} kcal）`
               : undefined
-          }>
-          <NumberInput value={kcal} onChangeText={setKcal} unit="kcal" placeholder={String(Math.round(estimated))} />
+          }
+        >
+          <NumberInput
+            value={kcal}
+            onChangeText={setKcal}
+            unit="kcal"
+            placeholder={String(Math.round(estimated))}
+          />
         </Field>
 
         <View style={styles.macroRow}>

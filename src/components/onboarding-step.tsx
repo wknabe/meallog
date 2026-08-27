@@ -31,7 +31,8 @@ export function OnboardingStep({
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.header}>
           <View style={styles.progressRow}>
             {Array.from({ length: TOTAL_STEPS }, (_, i) => (
@@ -48,9 +49,7 @@ export function OnboardingStep({
           {description != null && <Text style={styles.description}>{description}</Text>}
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
 

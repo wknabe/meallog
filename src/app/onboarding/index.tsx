@@ -12,10 +12,7 @@ export default function BasicInfoStep() {
   const { gender, birthDate, heightCm, weightKg, set } = useOnboardingStore();
 
   const canProceed =
-    gender != null &&
-    birthDate != null &&
-    Number(heightCm) > 0 &&
-    Number(weightKg) > 0;
+    gender != null && birthDate != null && Number(heightCm) > 0 && Number(weightKg) > 0;
 
   // 年齢の下限・上限（現実的な範囲に収めて入力ミスを防ぐ）
   const today = new Date();
@@ -28,7 +25,8 @@ export default function BasicInfoStep() {
       title="あなたのことを教えてください"
       description="目標カロリーを計算するために使います。あとから設定でいつでも変更できます。"
       onNext={() => router.push('/onboarding/goal')}
-      nextDisabled={!canProceed}>
+      nextDisabled={!canProceed}
+    >
       <Field label="性別">
         <SegmentedControl<Gender>
           options={[

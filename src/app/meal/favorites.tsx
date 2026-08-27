@@ -45,7 +45,7 @@ export default function FavoritesScreen() {
       if (skipped > 0) {
         Alert.alert(
           `${skipped}件を取り込めませんでした`,
-          '食品や単位の登録が変わっている可能性があります。残りの項目を追加しました。'
+          '食品や単位の登録が変わっている可能性があります。残りの項目を追加しました。',
         );
       }
       if (favorite.slot) setSlot(favorite.slot);
@@ -90,7 +90,8 @@ export default function FavoritesScreen() {
           onPress={() => void apply(favorite)}
           onLongPress={() => confirmDelete(favorite)}
           disabled={busy}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed, busy && styles.disabled]}>
+          style={({ pressed }) => [styles.row, pressed && styles.pressed, busy && styles.disabled]}
+        >
           <View style={styles.flex}>
             <Text style={styles.name}>{favorite.name}</Text>
             <Text style={styles.sub}>

@@ -18,7 +18,8 @@ export default function ActivityStep() {
       description="消費カロリーの推定に使います。迷ったら、当てはまる説明が一番近いものを選んでください。"
       onNext={() => router.push('/onboarding/confirm')}
       nextDisabled={activityLevel == null}
-      onBack={() => router.back()}>
+      onBack={() => router.back()}
+    >
       <OptionList<ActivityLevel>
         options={ACTIVITY_LEVELS.map((level) => ({
           value: level.level,

@@ -38,7 +38,7 @@ const REMOVED_KEY = 'removed_dish_seed_keys';
 export async function getMeta(db: SQLiteDatabase, key: string): Promise<string | null> {
   const row = await db.getFirstAsync<{ value: string }>(
     'SELECT value FROM app_meta WHERE key = ?;',
-    [key]
+    [key],
   );
   return row?.value ?? null;
 }
@@ -47,7 +47,7 @@ export async function setMeta(db: SQLiteDatabase, key: string, value: string): P
   await db.runAsync(
     `INSERT INTO app_meta (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
-    [key, value]
+    [key, value],
   );
 }
 
@@ -79,14 +79,14 @@ export async function seedPresetDishes(db: SQLiteDatabase): Promise<number> {
   if (installed >= DISH_SEED_VERSION) return 0;
 
   const existingRows = await db.getAllAsync<{ seed_key: string }>(
-    'SELECT seed_key FROM dishes WHERE seed_key IS NOT NULL;'
+    'SELECT seed_key FROM dishes WHERE seed_key IS NOT NULL;',
   );
   const existing = new Set(existingRows.map((row) => row.seed_key));
   const removed = await getRemovedSeedKeys(db);
 
   // 食品番号から食品idを引くための対応表
   const foodRows = await db.getAllAsync<{ id: number; std_code: string }>(
-    'SELECT id, std_code FROM foods WHERE std_code IS NOT NULL;'
+    'SELECT id, std_code FROM foods WHERE std_code IS NOT NULL;',
   );
   const foodIdByCode = new Map(foodRows.map((row) => [row.std_code, row.id]));
 
@@ -122,7 +122,7 @@ export async function seedPresetDishes(db: SQLiteDatabase): Promise<number> {
         `INSERT INTO dishes (name, kana, seed_key, category, cuisine, effort, volume, servings,
                              cook_minutes, source, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'preset', ?, ?);`,
-        [name, name, seedKey, category, cuisine, effort, volume, servings, cookMinutes, now, now]
+        [name, name, seedKey, category, cuisine, effort, volume, servings, cookMinutes, now, now],
       );
       const dishId = result.lastInsertRowId;
 
@@ -138,7 +138,7 @@ export async function seedPresetDishes(db: SQLiteDatabase): Promise<number> {
         await db.runAsync(
           `INSERT INTO dish_ingredients (dish_id, food_id, grams, is_seasoning, sort_order)
            VALUES (?, ?, ?, ?, ?);`,
-          [dishId, ingredient.foodId, ingredient.grams, ingredient.isSeasoning, index]
+          [dishId, ingredient.foodId, ingredient.grams, ingredient.isSeasoning, index],
         );
       }
 

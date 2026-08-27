@@ -16,7 +16,7 @@ export function useTodayKey(dayStartHour: number): DayKey {
     useCallback(() => {
       const current = today(dayStartHour);
       setTodayKey((previous) => (previous === current ? previous : current));
-    }, [dayStartHour])
+    }, [dayStartHour]),
   );
 
   return todayKey;
@@ -43,7 +43,7 @@ export function useSelectableDate(dayStartHour: number) {
           knownToday: current,
         };
       });
-    }, [dayStartHour])
+    }, [dayStartHour]),
   );
 
   const setDate = useCallback((date: DayKey) => {

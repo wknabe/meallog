@@ -108,7 +108,7 @@ export function openHealthSettings(): void {
  */
 export async function readDailyHealth(
   date: DayKey,
-  dayStartHour: number
+  dayStartHour: number,
 ): Promise<HealthDailyValues | null> {
   const module = loadModule();
   if (!module) return null;

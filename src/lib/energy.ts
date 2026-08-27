@@ -56,7 +56,7 @@ export type ResolvedBurn = {
 export function resolveBurn(
   preferred: BurnSource,
   estimate: EstimatedBurn,
-  watch: WatchBurn | null
+  watch: WatchBurn | null,
 ): ResolvedBurn {
   if (preferred === 'watch') {
     const watchKcal = watch?.totalKcal ?? null;
@@ -76,7 +76,7 @@ export function resolveBurn(
  */
 export function exerciseBonus(
   exerciseKcal: number,
-  settings: { addExerciseToTarget: boolean; exerciseAddRatio: number }
+  settings: { addExerciseToTarget: boolean; exerciseAddRatio: number },
 ): number {
   if (!settings.addExerciseToTarget) return 0;
   return Math.max(0, exerciseKcal) * (settings.exerciseAddRatio / 100);

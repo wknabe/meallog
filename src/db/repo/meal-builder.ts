@@ -14,11 +14,7 @@ import { formatQuantity, toGrams } from '@/lib/units';
  * 食品を記録用の1行に変換する。
  * quantity は単位が指定されていればその個数、なければグラム数として扱う。
  */
-export function foodToMealItem(
-  food: Food,
-  quantity: number,
-  unit: FoodUnit | null
-): MealItemInput {
+export function foodToMealItem(food: Food, quantity: number, unit: FoodUnit | null): MealItemInput {
   const grams = unit ? toGrams(quantity, unit) : quantity;
   return {
     refType: 'food',
@@ -50,7 +46,7 @@ export function dishToMealItem(dish: Dish, servings: number): MealItemInput {
  * 参照先が削除されていた項目は静かに読み飛ばす。
  */
 export async function favoriteToMealItems(
-  items: FavoriteItem[]
+  items: FavoriteItem[],
 ): Promise<{ items: MealItemInput[]; skipped: number }> {
   const result: MealItemInput[] = [];
   let skipped = 0;

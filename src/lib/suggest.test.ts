@@ -48,7 +48,7 @@ describe('distanceFromRemaining', () => {
     const withFat = nutrients({ kcal: 300, protein_g: 30, fat_g: 20, carb_g: 40 });
     const withoutFat = nutrients({ kcal: 300, protein_g: 30, fat_g: 0, carb_g: 40 });
     assert.ok(
-      distanceFromRemaining(withFat, noFatLeft) > distanceFromRemaining(withoutFat, noFatLeft)
+      distanceFromRemaining(withFat, noFatLeft) > distanceFromRemaining(withoutFat, noFatLeft),
     );
   });
 });
@@ -56,8 +56,14 @@ describe('distanceFromRemaining', () => {
 describe('rankByRemaining', () => {
   it('残りに近い順に並ぶ', () => {
     const candidates = [
-      { item: 'から揚げ', nutrients: nutrients({ kcal: 1200, protein_g: 40, fat_g: 70, carb_g: 60 }) },
-      { item: '鶏むねとごはん', nutrients: nutrients({ kcal: 640, protein_g: 58, fat_g: 14, carb_g: 88 }) },
+      {
+        item: 'から揚げ',
+        nutrients: nutrients({ kcal: 1200, protein_g: 40, fat_g: 70, carb_g: 60 }),
+      },
+      {
+        item: '鶏むねとごはん',
+        nutrients: nutrients({ kcal: 640, protein_g: 58, fat_g: 14, carb_g: 88 }),
+      },
       { item: 'サラダ', nutrients: nutrients({ kcal: 80, protein_g: 3, fat_g: 5, carb_g: 6 }) },
     ];
     const ranked = rankByRemaining(candidates, remaining, 3);
@@ -87,7 +93,10 @@ describe('buildCombo', () => {
 
     // 炭水化物とタンパク質が残りに近い値になる
     assert.ok(Math.abs(combo.totals.carbG - remaining.carbG) < 15, `C=${combo.totals.carbG}`);
-    assert.ok(Math.abs(combo.totals.proteinG - remaining.proteinG) < 15, `P=${combo.totals.proteinG}`);
+    assert.ok(
+      Math.abs(combo.totals.proteinG - remaining.proteinG) < 15,
+      `P=${combo.totals.proteinG}`,
+    );
     assert.equal(combo.items.length, 3);
   });
 

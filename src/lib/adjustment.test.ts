@@ -116,9 +116,7 @@ describe('computeAdjustment', () => {
   });
 
   it('記録が1日もなければ調整しない', () => {
-    const history: DayIntake[] = [
-      { date: '2026-05-01', intakeKcal: 0, recorded: false },
-    ];
+    const history: DayIntake[] = [{ date: '2026-05-01', intakeKcal: 0, recorded: false }];
     const result = computeAdjustment({ targetKcal: 2000, history, settings: settings() });
     assert.equal(result.adjustmentKcal, 0);
   });

@@ -34,7 +34,8 @@ export default function TabsLayout() {
           borderTopColor: colors.border,
         },
         tabBarLabelStyle: { fontSize: fontSize.xs, fontWeight: '600' },
-      }}>
+      }}
+    >
       {TABS.map((tab) => (
         <Tabs.Screen
           key={tab.name}

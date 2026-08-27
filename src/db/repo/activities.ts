@@ -60,7 +60,7 @@ export async function createActivity(input: ActivityInput): Promise<number> {
       input.kcal,
       input.memo,
       new Date().toISOString(),
-    ]
+    ],
   );
   return result.lastInsertRowId;
 }
@@ -69,7 +69,7 @@ export async function listActivities(date: DayKey): Promise<Activity[]> {
   const db = getDatabase();
   const rows = await db.getAllAsync<ActivityRow>(
     'SELECT * FROM activities WHERE date = ? ORDER BY id ASC;',
-    [date]
+    [date],
   );
   return rows.map(toActivity);
 }
@@ -78,7 +78,7 @@ export async function listActivitiesInRange(from: DayKey, to: DayKey): Promise<A
   const db = getDatabase();
   const rows = await db.getAllAsync<ActivityRow>(
     'SELECT * FROM activities WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC;',
-    [from, to]
+    [from, to],
   );
   return rows.map(toActivity);
 }
@@ -93,7 +93,7 @@ export async function getActivityKcal(date: DayKey): Promise<number> {
   const db = getDatabase();
   const row = await db.getFirstAsync<{ total: number | null }>(
     'SELECT SUM(kcal) AS total FROM activities WHERE date = ?;',
-    [date]
+    [date],
   );
   return row?.total ?? 0;
 }
@@ -101,14 +101,14 @@ export async function getActivityKcal(date: DayKey): Promise<number> {
 /** 期間内の日別の運動消費カロリー */
 export async function listDailyActivityKcal(
   from: DayKey,
-  to: DayKey
+  to: DayKey,
 ): Promise<{ date: DayKey; kcal: number }[]> {
   const db = getDatabase();
   const rows = await db.getAllAsync<{ date: string; kcal: number | null }>(
     `SELECT date, SUM(kcal) AS kcal FROM activities
      WHERE date BETWEEN ? AND ?
      GROUP BY date ORDER BY date ASC;`,
-    [from, to]
+    [from, to],
   );
   return rows.map((row) => ({ date: row.date, kcal: row.kcal ?? 0 }));
 }
@@ -188,7 +188,7 @@ export async function listHealthDaily(from: DayKey, to: DayKey): Promise<HealthD
 export async function saveHealthDaily(
   date: DayKey,
   values: Omit<HealthDaily, 'date' | 'source'>,
-  source: string
+  source: string,
 ): Promise<void> {
   const db = getDatabase();
   await db.runAsync(
@@ -216,6 +216,6 @@ export async function saveHealthDaily(
       values.sleepMin,
       source,
       new Date().toISOString(),
-    ]
+    ],
   );
 }

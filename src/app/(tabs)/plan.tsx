@@ -35,7 +35,7 @@ export default function PlanScreen() {
       return () => {
         cancelled = true;
       };
-    }, [todayKey])
+    }, [todayKey]),
   );
 
   if (!profile) return null;
@@ -57,7 +57,8 @@ export default function PlanScreen() {
           <CardTitle
             right={
               <Text style={styles.total}>{Math.round(totals.kcal).toLocaleString()} kcal</Text>
-            }>
+            }
+          >
             今日の献立
           </CardTitle>
 
@@ -75,7 +76,7 @@ export default function PlanScreen() {
                   />
                 ))}
               </View>
-            )
+            ),
           )}
 
           <Pressable onPress={() => router.push('/menu/today')} style={styles.link}>
@@ -86,9 +87,7 @@ export default function PlanScreen() {
       ) : (
         <Card>
           <CardTitle>今日の献立はまだありません</CardTitle>
-          <Text style={styles.note}>
-            気分と直近の栄養バランスから、今日の献立を組み立てます。
-          </Text>
+          <Text style={styles.note}>気分と直近の栄養バランスから、今日の献立を組み立てます。</Text>
         </Card>
       )}
 

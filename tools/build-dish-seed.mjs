@@ -107,7 +107,7 @@ for (const file of files) {
     const [min, max] = KCAL_RANGE[category];
     if (perServingKcal < min || perServingKcal > max) {
       warnings.push(
-        `${where}: 1人前 ${Math.round(perServingKcal)}kcal（${category} の想定は ${min}〜${max}）`
+        `${where}: 1人前 ${Math.round(perServingKcal)}kcal（${category} の想定は ${min}〜${max}）`,
       );
     }
 
@@ -156,7 +156,7 @@ for (const category of CATEGORIES) {
   const avg = (key) => Math.round(list.reduce((sum, s) => sum + s[key], 0) / list.length);
   console.log(
     `  ${category.padEnd(7)} ${String(list.length).padStart(3)}品  ` +
-      `${String(avg('kcal')).padStart(4)}kcal  P${avg('protein')} F${avg('fat')} C${avg('carb')}`
+      `${String(avg('kcal')).padStart(4)}kcal  P${avg('protein')} F${avg('fat')} C${avg('carb')}`,
   );
 }
 console.log(`  合計    ${dishes.length}品`);
@@ -170,12 +170,12 @@ for (const axis of [
 ]) {
   const [label, index, values] = axis;
   const counts = values.map(
-    (value) => `${value}:${dishes.filter((d) => d.row[index] === value).length}`
+    (value) => `${value}:${dishes.filter((d) => d.row[index] === value).length}`,
   );
   console.log(`  ${label}: ${counts.join(' ')}`);
 }
 const tasteCounts = TASTES.map(
-  (taste) => `${taste}:${dishes.filter((d) => d.row[7].includes(taste)).length}`
+  (taste) => `${taste}:${dishes.filter((d) => d.row[7].includes(taste)).length}`,
 );
 console.log(`  味: ${tasteCounts.join(' ')}`);
 
@@ -187,8 +187,18 @@ if (warnings.length > 0) {
 await writeFile(
   OUTPUT,
   JSON.stringify({
-    columns: ['name', 'category', 'cuisine', 'effort', 'volume', 'servings', 'cook_minutes', 'tastes', 'ingredients'],
+    columns: [
+      'name',
+      'category',
+      'cuisine',
+      'effort',
+      'volume',
+      'servings',
+      'cook_minutes',
+      'tastes',
+      'ingredients',
+    ],
     rows: dishes.map((d) => d.row),
-  })
+  }),
 );
 console.log(`\n出力: ${OUTPUT}（${dishes.length}品）`);

@@ -36,7 +36,7 @@ export async function saveWeight(record: {
        weight_kg = excluded.weight_kg,
        body_fat_pct = excluded.body_fat_pct,
        recorded_at = excluded.recorded_at;`,
-    [record.date, record.weightKg, record.bodyFatPct ?? null, new Date().toISOString()]
+    [record.date, record.weightKg, record.bodyFatPct ?? null, new Date().toISOString()],
   );
 }
 
@@ -52,7 +52,7 @@ export async function getLatestWeight(onOrBefore?: DayKey): Promise<WeightRecord
   const row = onOrBefore
     ? await db.getFirstAsync<WeightRow>(
         'SELECT * FROM weights WHERE date <= ? ORDER BY date DESC LIMIT 1;',
-        [onOrBefore]
+        [onOrBefore],
       )
     : await db.getFirstAsync<WeightRow>('SELECT * FROM weights ORDER BY date DESC LIMIT 1;');
   return row ? toRecord(row) : null;
@@ -62,7 +62,7 @@ export async function listWeights(from: DayKey, to: DayKey): Promise<WeightRecor
   const db = getDatabase();
   const rows = await db.getAllAsync<WeightRow>(
     'SELECT * FROM weights WHERE date BETWEEN ? AND ? ORDER BY date ASC;',
-    [from, to]
+    [from, to],
   );
   return rows.map(toRecord);
 }

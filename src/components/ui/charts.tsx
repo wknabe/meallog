@@ -78,7 +78,9 @@ export function GroupedBarChart({
   const barWidth = Math.max(Math.min(slot / 2 - 2, 14), 2);
 
   const toY = (value: number) =>
-    PADDING.top + plotHeight - ((value - scale.bottom) / (scale.top - scale.bottom || 1)) * plotHeight;
+    PADDING.top +
+    plotHeight -
+    ((value - scale.bottom) / (scale.top - scale.bottom || 1)) * plotHeight;
 
   // ラベルが重なるときは間引く
   const labelStep = Math.ceil(data.length / 7);
@@ -108,7 +110,8 @@ export function GroupedBarChart({
                 y={toY(tick) + 4}
                 fontSize={9}
                 fill={colors.textFaint}
-                textAnchor="end">
+                textAnchor="end"
+              >
                 {tick >= 1000 ? `${tick / 1000}k` : String(tick)}
               </SvgText>
             </G>
@@ -141,7 +144,8 @@ export function GroupedBarChart({
                     y={CHART_HEIGHT - 8}
                     fontSize={9}
                     fill={colors.textFaint}
-                    textAnchor="middle">
+                    textAnchor="middle"
+                  >
                     {point.label}
                   </SvgText>
                 )}
@@ -189,7 +193,9 @@ export function LineChartView({
 
   const toX = (index: number) => PADDING.left + stepX * index;
   const toY = (value: number) =>
-    PADDING.top + plotHeight - ((value - scale.bottom) / (scale.top - scale.bottom || 1)) * plotHeight;
+    PADDING.top +
+    plotHeight -
+    ((value - scale.bottom) / (scale.top - scale.bottom || 1)) * plotHeight;
 
   // 記録がない日は線を切らずに前後をつなぐ（体重は毎日測るとは限らないため）
   const points = data
@@ -221,7 +227,8 @@ export function LineChartView({
                 y={toY(tick) + 4}
                 fontSize={9}
                 fill={colors.textFaint}
-                textAnchor="end">
+                textAnchor="end"
+              >
                 {Number(tick.toFixed(1))}
               </SvgText>
             </G>
@@ -247,10 +254,11 @@ export function LineChartView({
                 y={CHART_HEIGHT - 8}
                 fontSize={9}
                 fill={colors.textFaint}
-                textAnchor="middle">
+                textAnchor="middle"
+              >
                 {point.label}
               </SvgText>
-            ) : null
+            ) : null,
           )}
         </Svg>
       )}

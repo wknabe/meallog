@@ -25,7 +25,7 @@ export default function LibraryIndexScreen() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, []),
   );
 
   return (
@@ -75,9 +75,7 @@ function MenuItem({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
       <View style={[styles.iconCircle, { backgroundColor: color }]}>
         <Ionicons name={icon} size={20} color="#fff" />
       </View>

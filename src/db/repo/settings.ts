@@ -1,6 +1,13 @@
 /** プロフィールと設定の読み書き（どちらも単一行テーブル） */
 import { getDatabase } from '@/db';
-import type { ActivityLevel, AdjustmentDistribution, BurnSource, Gender, Profile, Settings } from '@/lib/types';
+import type {
+  ActivityLevel,
+  AdjustmentDistribution,
+  BurnSource,
+  Gender,
+  Profile,
+  Settings,
+} from '@/lib/types';
 
 type ProfileRow = {
   gender: string;
@@ -87,7 +94,7 @@ export async function saveProfile(profile: Profile): Promise<void> {
       profile.targetsOverridden ? 1 : 0,
       now,
       now,
-    ]
+    ],
   );
 }
 
@@ -168,6 +175,6 @@ export async function saveSettings(settings: Settings): Promise<void> {
       settings.lastBackupAt,
       settings.lastAutoBackupAt,
       new Date().toISOString(),
-    ]
+    ],
   );
 }

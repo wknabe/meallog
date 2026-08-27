@@ -53,7 +53,7 @@ function makeFileName(): string {
 export async function savePhoto(
   sourceUri: string,
   kind: PhotoKind,
-  dimensions?: { width: number; height: number }
+  dimensions?: { width: number; height: number },
 ): Promise<string> {
   const spec = SPEC[kind];
   const dir = ensureDirectory(kind);

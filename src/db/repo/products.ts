@@ -79,7 +79,7 @@ export async function createProduct(input: ProductInput): Promise<number> {
         ...values,
         now,
         now,
-      ]
+      ],
     );
     productId = result.lastInsertRowId;
 
@@ -88,7 +88,7 @@ export async function createProduct(input: ProductInput): Promise<number> {
       await db.runAsync(
         `INSERT INTO food_units (food_id, name, grams, is_purchase_unit, sort_order)
          VALUES (?, '個', ?, 1, 0);`,
-        [productId, input.servingGrams]
+        [productId, input.servingGrams],
       );
     }
   });
@@ -122,7 +122,7 @@ export async function updateProduct(id: number, input: ProductInput): Promise<vo
         ...values,
         new Date().toISOString(),
         id,
-      ]
+      ],
     );
 
     // 100gあたりから1食あたりに変えた場合、常用単位がまだ無ければ作る。
@@ -130,13 +130,13 @@ export async function updateProduct(id: number, input: ProductInput): Promise<vo
     if (input.registerServingUnit && input.servingGrams != null && input.servingGrams > 0) {
       const existing = await db.getFirstAsync<{ count: number }>(
         'SELECT COUNT(*) AS count FROM food_units WHERE food_id = ?;',
-        [id]
+        [id],
       );
       if ((existing?.count ?? 0) === 0) {
         await db.runAsync(
           `INSERT INTO food_units (food_id, name, grams, is_purchase_unit, sort_order)
            VALUES (?, '個', ?, 1, 0);`,
-          [id, input.servingGrams]
+          [id, input.servingGrams],
         );
       }
     }
@@ -151,7 +151,7 @@ export async function countProductReferences(id: number): Promise<number> {
        (SELECT COUNT(*) FROM dish_ingredients WHERE food_id = ?)
      + (SELECT COUNT(*) FROM shopping_items WHERE food_id = ?)
      + (SELECT COUNT(*) FROM pantry WHERE food_id = ?) AS count;`,
-    [id, id, id]
+    [id, id, id],
   );
   return row?.count ?? 0;
 }
@@ -165,7 +165,7 @@ export async function deleteProduct(id: number): Promise<void> {
   const db = getDatabase();
   const row = await db.getFirstAsync<{ label_photo_path: string | null }>(
     "SELECT label_photo_path FROM foods WHERE id = ? AND source = 'product';",
-    [id]
+    [id],
   );
   await db.runAsync("DELETE FROM foods WHERE id = ? AND source = 'product';", [id]);
   // 参照が残っていない写真は一緒に片付ける
@@ -208,7 +208,7 @@ export async function listProducts(keyword = ''): Promise<ProductSummary[]> {
      WHERE source = 'product'
        ${trimmed === '' ? '' : 'AND (name LIKE ? OR maker LIKE ?)'}
      ORDER BY use_count DESC, updated_at DESC;`,
-    trimmed === '' ? [] : [`%${trimmed}%`, `%${trimmed}%`]
+    trimmed === '' ? [] : [`%${trimmed}%`, `%${trimmed}%`],
   );
 
   return rows.map((row) => ({
@@ -231,7 +231,7 @@ export async function getProductForEdit(id: number): Promise<ProductInput | null
   const db = getDatabase();
   const row = await db.getFirstAsync<Record<string, string | number | null>>(
     "SELECT * FROM foods WHERE id = ? AND source = 'product';",
-    [id]
+    [id],
   );
   if (!row) return null;
 

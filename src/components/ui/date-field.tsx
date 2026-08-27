@@ -25,7 +25,8 @@ export function DateField({
     <View>
       <Pressable
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.field, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.field, pressed && styles.pressed]}
+      >
         <Text style={[styles.value, value == null && styles.placeholder]}>
           {value != null ? formatDayLabelWithYear(value) : placeholder}
         </Text>
@@ -72,7 +73,8 @@ export function TimeField({
     <View>
       <Pressable
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.field, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.field, pressed && styles.pressed]}
+      >
         <Text style={styles.value}>
           {current.getHours()}:{String(current.getMinutes()).padStart(2, '0')}
         </Text>

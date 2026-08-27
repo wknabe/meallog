@@ -26,7 +26,7 @@ export default function ProductsScreen() {
   useFocusEffect(
     useCallback(() => {
       void reload();
-    }, [reload])
+    }, [reload]),
   );
 
   async function confirmDelete(product: ProductSummary) {
@@ -35,7 +35,7 @@ export default function ProductsScreen() {
     if (references > 0) {
       Alert.alert(
         '削除できません',
-        `この商品は料理の材料や買い物リストで${references}件使われています。先にそちらから外してください。`
+        `この商品は料理の材料や買い物リストで${references}件使われています。先にそちらから外してください。`,
       );
       return;
     }
@@ -71,10 +71,7 @@ export default function ProductsScreen() {
         />
       </View>
 
-      <Button
-        title="成分表から商品を登録"
-        onPress={() => router.push('/library/product-edit')}
-      />
+      <Button title="成分表から商品を登録" onPress={() => router.push('/library/product-edit')} />
 
       {products.length === 0 ? (
         <EmptyState
@@ -89,7 +86,8 @@ export default function ProductsScreen() {
               router.push({ pathname: '/library/product-edit', params: { id: product.id } })
             }
             onLongPress={() => void confirmDelete(product)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
             <View style={styles.flex}>
               <Text style={styles.name}>{product.name}</Text>
               <Text style={styles.sub}>

@@ -76,20 +76,14 @@ describe('remainingMacros', () => {
   it('目標から摂取分を引いた残りを返す', () => {
     const consumed = emptyNutrients();
     Object.assign(consumed, { kcal: 1350, protein_g: 80, fat_g: 45, carb_g: 160 });
-    const result = remainingMacros(
-      { kcal: 2000, proteinG: 140, fatG: 60, carbG: 250 },
-      consumed
-    );
+    const result = remainingMacros({ kcal: 2000, proteinG: 140, fatG: 60, carbG: 250 }, consumed);
     assert.deepEqual(result, { kcal: 650, proteinG: 60, fatG: 15, carbG: 90 });
   });
 
   it('超過分はマイナスのまま返す', () => {
     const consumed = emptyNutrients();
     Object.assign(consumed, { kcal: 2300, protein_g: 150, fat_g: 80, carb_g: 260 });
-    const result = remainingMacros(
-      { kcal: 2000, proteinG: 140, fatG: 60, carbG: 250 },
-      consumed
-    );
+    const result = remainingMacros({ kcal: 2000, proteinG: 140, fatG: 60, carbG: 250 }, consumed);
     assert.equal(result.kcal, -300);
     assert.equal(result.fatG, -20);
   });

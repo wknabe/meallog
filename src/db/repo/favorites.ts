@@ -46,7 +46,7 @@ export async function listFavorites(): Promise<MealFavorite[]> {
     `SELECT * FROM meal_favorite_items
      WHERE favorite_id IN (${placeholders})
      ORDER BY sort_order ASC, id ASC;`,
-    rows.map((row) => row.id)
+    rows.map((row) => row.id),
   );
 
   const itemsByFavorite = new Map<number, FavoriteItem[]>();
@@ -80,14 +80,14 @@ export async function createFavorite(input: {
   await db.withTransactionAsync(async () => {
     const result = await db.runAsync(
       'INSERT INTO meal_favorites (name, slot, created_at) VALUES (?, ?, ?);',
-      [input.name, input.slot, new Date().toISOString()]
+      [input.name, input.slot, new Date().toISOString()],
     );
     favoriteId = result.lastInsertRowId;
     for (const [index, item] of input.items.entries()) {
       await db.runAsync(
         `INSERT INTO meal_favorite_items (favorite_id, ref_type, ref_id, quantity, unit_label, sort_order)
          VALUES (?, ?, ?, ?, ?, ?);`,
-        [favoriteId, item.refType, item.refId, item.quantity, item.unitLabel, index]
+        [favoriteId, item.refType, item.refId, item.quantity, item.unitLabel, index],
       );
     }
   });

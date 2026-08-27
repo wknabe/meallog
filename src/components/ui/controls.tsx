@@ -53,7 +53,8 @@ export function Button({
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
         style,
-      ]}>
+      ]}
+    >
       <Text style={[styles.buttonText, { color: textColor }]}>{title}</Text>
     </Pressable>
   );
@@ -79,7 +80,8 @@ export function SegmentedControl<T extends string | number>({
           <Pressable
             key={String(option.value)}
             onPress={() => onChange(option.value)}
-            style={[styles.segmentItem, selected && styles.segmentItemSelected]}>
+            style={[styles.segmentItem, selected && styles.segmentItemSelected]}
+          >
             <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
               {option.label}
             </Text>
@@ -108,7 +110,8 @@ export function OptionList<T extends string | number>({
           <Pressable
             key={String(option.value)}
             onPress={() => onChange(option.value)}
-            style={[styles.option, selected && styles.optionSelected]}>
+            style={[styles.option, selected && styles.optionSelected]}
+          >
             <View style={styles.flex}>
               <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>
                 {option.label}
@@ -138,9 +141,7 @@ export function Chip({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}>
+    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
   );
@@ -218,7 +219,10 @@ export function PressableRow({
   destructive?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pressableRow, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.pressableRow, pressed && styles.pressed]}
+    >
       <Text style={[styles.pressableLabel, destructive && { color: colors.danger }]}>{label}</Text>
       <View style={styles.pressableRight}>
         {value != null && <Text style={styles.pressableValue}>{value}</Text>}

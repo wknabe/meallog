@@ -48,7 +48,7 @@ export function distanceFromRemaining(nutrients: Nutrients, remaining: Remaining
 export function rankByRemaining<T>(
   candidates: Candidate<T>[],
   remaining: Remaining,
-  limit = 10
+  limit = 10,
 ): { item: T; nutrients: Nutrients; score: number }[] {
   return candidates
     .map((candidate) => ({
@@ -104,7 +104,7 @@ function roundGrams(value: number): number {
  */
 export function buildCombo(
   remaining: Remaining,
-  selection: { protein: ComboFood; staple?: ComboFood; vegetable?: ComboFood }
+  selection: { protein: ComboFood; staple?: ComboFood; vegetable?: ComboFood },
 ): ComboResult {
   const items: ComboItem[] = [];
 
@@ -129,7 +129,7 @@ export function buildCombo(
         ? clamp(
             roundGrams((remaining.carbG - vegCarb) / carbPerGram),
             LIMITS.staple.min,
-            LIMITS.staple.max
+            LIMITS.staple.max,
           )
         : 0;
   }
@@ -144,7 +144,7 @@ export function buildCombo(
       ? clamp(
           roundGrams((remaining.proteinG - stapleProtein - vegProtein) / proteinPerGram),
           LIMITS.protein.min,
-          LIMITS.protein.max
+          LIMITS.protein.max,
         )
       : LIMITS.protein.min;
 
@@ -161,7 +161,7 @@ export function buildCombo(
       fatG: sum.fatG + contributed(item.food, item.grams, 'fat_g'),
       carbG: sum.carbG + contributed(item.food, item.grams, 'carb_g'),
     }),
-    { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 }
+    { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
   );
 
   return { items, totals };

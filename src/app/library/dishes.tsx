@@ -52,14 +52,14 @@ export default function DishesScreen() {
         volume: volume ?? undefined,
         keyword: debouncedKeyword,
         limit: 200,
-      })
+      }),
     );
   }, [category, cuisine, effort, volume, debouncedKeyword]);
 
   useFocusEffect(
     useCallback(() => {
       void reload();
-    }, [reload])
+    }, [reload]),
   );
 
   return (
@@ -141,13 +141,14 @@ export default function DishesScreen() {
                 startFrom(dish);
                 router.push('/library/dish-edit');
               }}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
               <View style={styles.flex}>
                 <Text style={styles.name}>{dish.name}</Text>
                 <Text style={styles.sub}>
                   1人前 {Math.round(nutrition.nutrients.kcal)}kcal ／ P
-                  {nutrition.nutrients.protein_g.toFixed(1)} F{nutrition.nutrients.fat_g.toFixed(1)} C
-                  {nutrition.nutrients.carb_g.toFixed(1)}
+                  {nutrition.nutrients.protein_g.toFixed(1)} F{nutrition.nutrients.fat_g.toFixed(1)}{' '}
+                  C{nutrition.nutrients.carb_g.toFixed(1)}
                 </Text>
                 <Text style={styles.tags}>
                   {[

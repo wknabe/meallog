@@ -66,7 +66,7 @@ function toFood(row: FoodRow): Food {
  */
 export async function searchFoods(
   query: string,
-  options: { limit?: number; source?: FoodSource } = {}
+  options: { limit?: number; source?: FoodSource } = {},
 ): Promise<Food[]> {
   const db = getDatabase();
   const limit = options.limit ?? 50;
@@ -79,7 +79,7 @@ export async function searchFoods(
        ${options.source ? 'WHERE source = ?' : ''}
        ORDER BY is_favorite DESC, use_count DESC, name ASC
        LIMIT ?;`,
-      options.source ? [options.source, limit] : [limit]
+      options.source ? [options.source, limit] : [limit],
     );
     return rows.map(toFood);
   }
@@ -103,7 +103,7 @@ export async function searchFoods(
      LIMIT ?;`,
     options.source
       ? [pattern, normalized, options.source, aliasExact, `${keyword}%`, limit]
-      : [pattern, normalized, aliasExact, `${keyword}%`, limit]
+      : [pattern, normalized, aliasExact, `${keyword}%`, limit],
   );
   return rows.map(toFood);
 }
@@ -156,7 +156,7 @@ export async function countFoods(source?: FoodSource): Promise<number> {
   const row = source
     ? await db.getFirstAsync<{ count: number }>(
         'SELECT COUNT(*) AS count FROM foods WHERE source = ?;',
-        [source]
+        [source],
       )
     : await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM foods;');
   return row?.count ?? 0;
@@ -178,7 +178,7 @@ export async function listCommonFoods(groupCodes: string[], limit = 30): Promise
        AND (kana LIKE '%|%' OR source = 'product')
      ORDER BY use_count DESC, id ASC
      LIMIT ?;`,
-    [...groupCodes, limit]
+    [...groupCodes, limit],
   );
   return rows.map(toFood);
 }

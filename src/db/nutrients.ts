@@ -5,14 +5,7 @@
  */
 
 /** 主要栄養素。画面の中心に出すのはこの4つ（kcal・P・F・C） */
-export const MACRO_KEYS = [
-  'kcal',
-  'protein_g',
-  'fat_g',
-  'carb_g',
-  'fiber_g',
-  'salt_g',
-] as const;
+export const MACRO_KEYS = ['kcal', 'protein_g', 'fat_g', 'carb_g', 'fiber_g', 'salt_g'] as const;
 
 /** ビタミン類 */
 export const VITAMIN_KEYS = [

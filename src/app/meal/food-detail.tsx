@@ -111,7 +111,9 @@ export default function FoodDetailScreen() {
       <Card>
         <Text style={styles.title}>{title}</Text>
         {dish ? (
-          <Text style={styles.sub}>材料 {dish.ingredients.length}種類 ／ {dish.servings}人前ぶんのレシピ</Text>
+          <Text style={styles.sub}>
+            材料 {dish.ingredients.length}種類 ／ {dish.servings}人前ぶんのレシピ
+          </Text>
         ) : (
           <Text style={styles.sub}>
             {food?.groupCode ? `${FOOD_GROUPS[food.groupCode] ?? ''} ・ ` : ''}
@@ -139,7 +141,7 @@ export default function FoodDetailScreen() {
               setQuantityText(
                 nextUnit
                   ? String(Number(fromGrams(currentGrams, nextUnit).toFixed(2)))
-                  : String(Math.round(currentGrams))
+                  : String(Math.round(currentGrams)),
               );
             }}
           />
@@ -158,15 +160,14 @@ export default function FoodDetailScreen() {
             <Pressable
               key={multiplier}
               onPress={() => setQuantityText(String(Number((quantity * multiplier).toFixed(2))))}
-              style={styles.multiplier}>
+              style={styles.multiplier}
+            >
               <Text style={styles.multiplierText}>{multiplier}倍</Text>
             </Pressable>
           ))}
         </View>
 
-        {selectedUnit != null && (
-          <Text style={styles.sub}>約 {Math.round(grams)}g</Text>
-        )}
+        {selectedUnit != null && <Text style={styles.sub}>約 {Math.round(grams)}g</Text>}
         {dish != null && <Text style={styles.sub}>約 {Math.round(totalGrams)}g</Text>}
       </Card>
 

@@ -34,7 +34,7 @@ export default function ConfirmStep() {
         targetWeightKg: draft.targetWeightKg ? Number(draft.targetWeightKg) : null,
         targetDate: draft.targetDate,
       }),
-    [draft, weightKg]
+    [draft, weightKg],
   );
 
   // 算出値を初期値として持ち、書き換えられたら「手動上書き」として保存する
@@ -88,7 +88,8 @@ export default function ConfirmStep() {
       nextLabel={saving ? '保存中…' : '始める'}
       onNext={handleStart}
       nextDisabled={!valid || saving}
-      onBack={() => router.back()}>
+      onBack={() => router.back()}
+    >
       <Card>
         <Row label="基礎代謝" value={`${Math.round(result.bmr).toLocaleString()} kcal`} />
         <Divider />

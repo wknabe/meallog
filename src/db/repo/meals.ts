@@ -104,7 +104,7 @@ async function insertItems(mealId: number, items: MealItemInput[]): Promise<void
         item.nutrients.fiber_g,
         JSON.stringify(item.nutrients),
         index,
-      ]
+      ],
     );
   }
 }
@@ -118,7 +118,7 @@ export async function createMeal(input: MealInput): Promise<number> {
     const result = await db.runAsync(
       `INSERT INTO meals (date, slot, eaten_at, photo_path, memo, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?);`,
-      [input.date, input.slot, input.eatenAt, input.photoPath, input.memo, now, now]
+      [input.date, input.slot, input.eatenAt, input.photoPath, input.memo, now, now],
     );
     mealId = result.lastInsertRowId;
     await insertItems(mealId, input.items);
@@ -141,7 +141,7 @@ export async function updateMeal(id: number, input: MealInput): Promise<void> {
         input.memo,
         new Date().toISOString(),
         id,
-      ]
+      ],
     );
     // 中身は毎回入れ替える。並び順や個数の変更を差分で扱うと複雑になるため
     await db.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', [id]);
@@ -155,7 +155,7 @@ export async function getMeal(id: number): Promise<Meal | null> {
   if (!row) return null;
   const itemRows = await db.getAllAsync<MealItemRow>(
     'SELECT * FROM meal_items WHERE meal_id = ? ORDER BY sort_order ASC, id ASC;',
-    [id]
+    [id],
   );
   return {
     id: row.id,
@@ -173,7 +173,7 @@ export async function listMealsByDate(date: DayKey): Promise<Meal[]> {
   const db = getDatabase();
   const rows = await db.getAllAsync<MealRow>(
     'SELECT * FROM meals WHERE date = ? ORDER BY eaten_at ASC, id ASC;',
-    [date]
+    [date],
   );
   if (rows.length === 0) return [];
 
@@ -181,7 +181,7 @@ export async function listMealsByDate(date: DayKey): Promise<Meal[]> {
     `SELECT * FROM meal_items
      WHERE meal_id IN (SELECT id FROM meals WHERE date = ?)
      ORDER BY sort_order ASC, id ASC;`,
-    [date]
+    [date],
   );
 
   const itemsByMeal = new Map<number, MealItem[]>();
@@ -240,7 +240,7 @@ export async function getDailyTotals(date: DayKey): Promise<DailyTotals> {
             SUM(i.carb_g) AS carb_g, SUM(i.fiber_g) AS fiber_g
      FROM meal_items i JOIN meals m ON m.id = i.meal_id
      WHERE m.date = ?;`,
-    [date]
+    [date],
   );
   if (!row) return emptyTotals(date);
   return {
@@ -270,7 +270,7 @@ export async function listDailyTotals(from: DayKey, to: DayKey): Promise<DailyTo
      WHERE m.date BETWEEN ? AND ?
      GROUP BY m.date
      ORDER BY m.date ASC;`,
-    [from, to]
+    [from, to],
   );
   return rows.map((row) => ({
     date: row.date,
@@ -293,7 +293,7 @@ export async function sumNutrientsInRange(from: DayKey, to: DayKey): Promise<Nut
     `SELECT i.nutrients AS nutrients
      FROM meal_items i JOIN meals m ON m.id = i.meal_id
      WHERE m.date BETWEEN ? AND ?;`,
-    [from, to]
+    [from, to],
   );
   const parsed: Partial<Nutrients>[] = [];
   for (const row of rows) {
@@ -311,7 +311,7 @@ export async function countRecordedDays(from: DayKey, to: DayKey): Promise<numbe
   const db = getDatabase();
   const row = await db.getFirstAsync<{ count: number }>(
     'SELECT COUNT(DISTINCT date) AS count FROM meals WHERE date BETWEEN ? AND ?;',
-    [from, to]
+    [from, to],
   );
   return row?.count ?? 0;
 }
@@ -326,11 +326,11 @@ export async function clearPhotoPaths(paths: string[]): Promise<void> {
   const placeholders = paths.map(() => '?').join(',');
   await db.runAsync(
     `UPDATE meals SET photo_path = NULL WHERE photo_path IN (${placeholders});`,
-    paths
+    paths,
   );
   await db.runAsync(
     `UPDATE foods SET label_photo_path = NULL WHERE label_photo_path IN (${placeholders});`,
-    paths
+    paths,
   );
 }
 
@@ -341,7 +341,7 @@ export async function recentDishIds(from: DayKey, to: DayKey): Promise<number[]>
     `SELECT DISTINCT i.ref_id AS ref_id
      FROM meal_items i JOIN meals m ON m.id = i.meal_id
      WHERE m.date BETWEEN ? AND ? AND i.ref_type = 'dish';`,
-    [from, to]
+    [from, to],
   );
   return rows.map((row) => row.ref_id);
 }

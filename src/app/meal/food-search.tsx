@@ -47,7 +47,7 @@ export default function FoodSearchScreen() {
   useFocusEffect(
     useCallback(() => {
       void run(keyword, mode);
-    }, [run, keyword, mode])
+    }, [run, keyword, mode]),
   );
 
   return (
@@ -110,8 +110,11 @@ export default function FoodSearchScreen() {
           }
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push({ pathname: '/meal/food-detail', params: { id: item.id } })}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              onPress={() =>
+                router.push({ pathname: '/meal/food-detail', params: { id: item.id } })
+              }
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
               <View style={styles.flex}>
                 <Text style={styles.name} numberOfLines={2}>
                   {item.name}
@@ -147,12 +150,11 @@ export default function FoodSearchScreen() {
                 onPress={() =>
                   router.push({ pathname: '/meal/food-detail', params: { dishId: item.id } })
                 }
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              >
                 <View style={styles.flex}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.sub}>
-                    1人前 {Math.round(nutrition.nutrients.kcal)}kcal
-                  </Text>
+                  <Text style={styles.sub}>1人前 {Math.round(nutrition.nutrients.kcal)}kcal</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
               </Pressable>

@@ -51,7 +51,8 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.background },
-          }}>
+          }}
+        >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="meal" />
@@ -59,10 +60,7 @@ export default function RootLayout() {
           <Stack.Screen name="library" />
           <Stack.Screen name="suggest" />
           <Stack.Screen name="menu" />
-          <Stack.Screen
-            name="weight"
-            options={{ ...stackScreenOptions, title: '体重' }}
-          />
+          <Stack.Screen name="weight" options={{ ...stackScreenOptions, title: '体重' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,13 +1,6 @@
 /** 画面の骨格になる部品（画面枠・カード・見出し・進捗バー） */
 import type { ReactNode } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import { cardShadow, colors, fontSize, radius, spacing } from '@/theme/colors';
@@ -33,7 +26,8 @@ export function Screen({
       {scroll ? (
         <ScrollView
           contentContainerStyle={[styles.scrollContent, contentStyle]}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+        >
           {children}
         </ScrollView>
       ) : (
@@ -43,13 +37,7 @@ export function Screen({
   );
 }
 
-export function Card({
-  children,
-  style,
-}: {
-  children: ReactNode;
-  style?: StyleProp<ViewStyle>;
-}) {
+export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 

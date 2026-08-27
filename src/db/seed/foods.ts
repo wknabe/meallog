@@ -34,7 +34,7 @@ const BATCH_SIZE = 25;
  */
 export async function seedStandardFoods(db: SQLiteDatabase): Promise<number> {
   const existing = await db.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) AS count FROM foods WHERE source = 'standard';"
+    "SELECT COUNT(*) AS count FROM foods WHERE source = 'standard';",
   );
   if ((existing?.count ?? 0) > 0) return 0;
 
@@ -53,7 +53,7 @@ export async function seedStandardFoods(db: SQLiteDatabase): Promise<number> {
       }
       await db.runAsync(
         `INSERT INTO foods (${columnList}) VALUES ${batch.map(() => placeholders).join(',')};`,
-        values
+        values,
       );
     }
 
@@ -62,7 +62,7 @@ export async function seedStandardFoods(db: SQLiteDatabase): Promise<number> {
       await db.runAsync(
         `INSERT INTO food_units (food_id, name, grams, is_purchase_unit, sort_order)
          SELECT id, ?, ?, ?, ? FROM foods WHERE std_code = ?;`,
-        [name, grams, isPurchaseUnit, sortOrder, stdCode]
+        [name, grams, isPurchaseUnit, sortOrder, stdCode],
       );
     }
   });

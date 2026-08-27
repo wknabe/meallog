@@ -64,7 +64,7 @@ export default function NewMealScreen() {
       if (!permission.granted) {
         Alert.alert(
           source === 'camera' ? 'カメラを使えません' : '写真を読み込めません',
-          '端末の設定からアクセスを許可してください。'
+          '端末の設定からアクセスを許可してください。',
         );
         return;
       }
@@ -130,7 +130,8 @@ export default function NewMealScreen() {
               { borderColor: `${method.color}33`, backgroundColor: `${method.color}0F` },
               pressed && styles.pressed,
               busy && styles.disabled,
-            ]}>
+            ]}
+          >
             <View style={[styles.iconCircle, { backgroundColor: method.color }]}>
               <Ionicons name={method.icon} size={20} color="#fff" />
             </View>

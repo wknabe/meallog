@@ -116,7 +116,7 @@ export const useDishDraftStore = create<DishDraftState>((set) => ({
   updateIngredient: (key, values) =>
     set((state) => ({
       ingredients: state.ingredients.map((ingredient) =>
-        ingredient.key === key ? { ...ingredient, ...values } : ingredient
+        ingredient.key === key ? { ...ingredient, ...values } : ingredient,
       ),
     })),
 
@@ -140,6 +140,6 @@ export function draftDishNutrition(ingredients: DraftIngredient[], servings: num
         grams: toGramsValue(ingredient.grams),
       })),
     },
-    1
+    1,
   );
 }

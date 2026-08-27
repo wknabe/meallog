@@ -199,7 +199,7 @@ export function paceToTargetDate(
   currentWeightKg: number,
   targetWeightKg: number,
   kgPerMonth: number,
-  from: DayKey = toDayKey(new Date())
+  from: DayKey = toDayKey(new Date()),
 ): DayKey {
   const diffKg = Math.abs(currentWeightKg - targetWeightKg);
   if (diffKg === 0 || kgPerMonth <= 0) return addDays(from, 30);

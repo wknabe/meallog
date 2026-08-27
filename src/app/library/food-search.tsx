@@ -65,9 +65,7 @@ export default function DishFoodSearchScreen() {
             </Pressable>
           )}
         </View>
-        <Text style={styles.lead}>
-          選ぶと100gで追加します。分量は前の画面で調整してください。
-        </Text>
+        <Text style={styles.lead}>選ぶと100gで追加します。分量は前の画面で調整してください。</Text>
         {added.length > 0 && (
           <Pressable onPress={() => router.back()} style={styles.doneButton}>
             <Text style={styles.doneText}>{added.length}件を追加して戻る</Text>
@@ -89,7 +87,8 @@ export default function DishFoodSearchScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => handleSelect(item)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
             <View style={styles.flex}>
               <Text style={styles.name} numberOfLines={2}>
                 {item.name}

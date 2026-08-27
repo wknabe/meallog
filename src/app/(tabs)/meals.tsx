@@ -6,7 +6,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SegmentedControl } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
-import { MACRO_KEYS, MINERAL_KEYS, NUTRIENT_LABELS, VITAMIN_KEYS, addNutrients, emptyNutrients } from '@/db/nutrients';
+import {
+  MACRO_KEYS,
+  MINERAL_KEYS,
+  NUTRIENT_LABELS,
+  VITAMIN_KEYS,
+  addNutrients,
+  emptyNutrients,
+} from '@/db/nutrients';
 import { listMealsByDate } from '@/db/repo/meals';
 import { useSelectableDate } from '@/hooks/use-today';
 import { addDays, formatDayLabel, formatTime } from '@/lib/day';
@@ -39,7 +46,7 @@ export default function MealsScreen() {
       return () => {
         cancelled = true;
       };
-    }, [date])
+    }, [date]),
   );
 
   const totals = meals
@@ -103,7 +110,7 @@ export default function MealsScreen() {
             const slotMeals = mealsBySlot.get(slot) ?? [];
             const slotKcal = slotMeals.reduce(
               (sum, meal) => sum + meal.items.reduce((s, item) => s + item.nutrients.kcal, 0),
-              0
+              0,
             );
             return (
               <Card key={slot}>
@@ -112,7 +119,8 @@ export default function MealsScreen() {
                     slotMeals.length > 0 ? (
                       <Text style={styles.slotKcal}>{Math.round(slotKcal)} kcal</Text>
                     ) : undefined
-                  }>
+                  }
+                >
                   {MEAL_SLOT_LABELS[slot]}
                 </CardTitle>
 
@@ -122,7 +130,8 @@ export default function MealsScreen() {
                     <Pressable
                       key={meal.id}
                       onPress={() => openMeal(meal)}
-                      style={({ pressed }) => [styles.meal, pressed && styles.pressed]}>
+                      style={({ pressed }) => [styles.meal, pressed && styles.pressed]}
+                    >
                       {uri != null ? (
                         <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
                       ) : (
@@ -142,14 +151,11 @@ export default function MealsScreen() {
                 })}
 
                 <Pressable
-                  onPress={() =>
-                    router.push({ pathname: '/meal/new', params: { date, slot } })
-                  }
-                  style={styles.addRow}>
+                  onPress={() => router.push({ pathname: '/meal/new', params: { date, slot } })}
+                  style={styles.addRow}
+                >
                   <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-                  <Text style={styles.addText}>
-                    {MEAL_SLOT_LABELS[slot]}を記録
-                  </Text>
+                  <Text style={styles.addText}>{MEAL_SLOT_LABELS[slot]}を記録</Text>
                 </Pressable>
               </Card>
             );
@@ -158,9 +164,7 @@ export default function MealsScreen() {
           <Card>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>合計</Text>
-              <Text style={styles.totalValue}>
-                {Math.round(totals.kcal).toLocaleString()} kcal
-              </Text>
+              <Text style={styles.totalValue}>{Math.round(totals.kcal).toLocaleString()} kcal</Text>
             </View>
           </Card>
         </>
@@ -214,7 +218,7 @@ export default function MealsScreen() {
                       value={`${Math.round(item.nutrients.kcal)} kcal`}
                     />
                   </View>
-                ))
+                )),
               )
             )}
           </Card>
@@ -236,7 +240,12 @@ const styles = StyleSheet.create({
   dateLabel: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
 
   slotKcal: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600' },
-  meal: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  meal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   pressed: { opacity: 0.7 },
   thumb: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
@@ -249,5 +258,10 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   totalLabel: { fontSize: fontSize.md, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text },
-  empty: { fontSize: fontSize.sm, color: colors.textFaint, textAlign: 'center', paddingVertical: spacing.md },
+  empty: {
+    fontSize: fontSize.sm,
+    color: colors.textFaint,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
 });

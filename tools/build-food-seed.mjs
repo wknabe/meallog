@@ -178,7 +178,10 @@ await mkdir('assets/data', { recursive: true });
 await writeFile(OUTPUT, JSON.stringify(output));
 await writeFile(
   UNITS_OUTPUT,
-  JSON.stringify({ columns: ['std_code', 'name', 'grams', 'is_purchase_unit', 'sort_order'], rows: unitRows })
+  JSON.stringify({
+    columns: ['std_code', 'name', 'grams', 'is_purchase_unit', 'sort_order'],
+    rows: unitRows,
+  }),
 );
 
 console.log(`変換しました: ${rows.length}件（除外 ${skipped}行）`);

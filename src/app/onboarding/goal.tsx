@@ -37,7 +37,8 @@ export default function GoalStep() {
       description="目標体重と達成したい時期から、1日の目標カロリーを逆算します。"
       onNext={() => router.push('/onboarding/activity')}
       nextDisabled={!canProceed}
-      onBack={() => router.back()}>
+      onBack={() => router.back()}
+    >
       <Field label="目標体重">
         <NumberInput
           value={targetWeightKg}
@@ -73,14 +74,15 @@ export default function GoalStep() {
             <>
               <Text style={styles.warningTitle}>ペースが速すぎます</Text>
               <Text style={styles.warningText}>
-                週{Math.abs(kgPerWeek).toFixed(1)}kgのペースになります。体脂肪1kgは約7,200kcalに相当するため、
+                週{Math.abs(kgPerWeek).toFixed(1)}
+                kgのペースになります。体脂肪1kgは約7,200kcalに相当するため、
                 食事だけで達成するのは現実的ではありません。達成希望日を延ばすことをおすすめします。
               </Text>
             </>
           ) : (
             <Text style={styles.summaryText}>
-              {formatDayLabelWithYear(targetDate)}まで{days}日 ／ 週
-              {Math.abs(kgPerWeek).toFixed(2)}kgのペース
+              {formatDayLabelWithYear(targetDate)}まで{days}日 ／ 週{Math.abs(kgPerWeek).toFixed(2)}
+              kgのペース
             </Text>
           )}
         </View>

@@ -156,7 +156,7 @@ export function draftTotals(items: DraftItem[]) {
       fatG: total.fatG + item.nutrients.fat_g,
       carbG: total.carbG + item.nutrients.carb_g,
     }),
-    { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 }
+    { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
   );
 }
 

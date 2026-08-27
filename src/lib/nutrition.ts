@@ -87,7 +87,7 @@ export type MacroRemaining = {
 
 export function remainingMacros(
   target: { kcal: number; proteinG: number; fatG: number; carbG: number },
-  consumed: Nutrients
+  consumed: Nutrients,
 ): MacroRemaining {
   return {
     kcal: target.kcal - consumed.kcal,
