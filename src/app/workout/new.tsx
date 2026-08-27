@@ -2,7 +2,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Field, NumberInput, OptionList, SegmentedControl, TextField } from '@/components/ui/controls';
+import {
+  Button,
+  Field,
+  NumberInput,
+  OptionList,
+  SegmentedControl,
+  TextField,
+} from '@/components/ui/controls';
 import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, Screen } from '@/components/ui/layout';
 import { createActivity } from '@/db/repo/activities';
@@ -125,7 +132,12 @@ export default function NewWorkoutScreen() {
           {(type === 'run' || type === 'walk') && (
             <View style={styles.col}>
               <Field label="距離">
-                <NumberInput value={distance} onChangeText={setDistance} unit="km" placeholder="5.0" />
+                <NumberInput
+                  value={distance}
+                  onChangeText={setDistance}
+                  unit="km"
+                  placeholder="5.0"
+                />
               </Field>
             </View>
           )}
@@ -154,7 +166,8 @@ export default function NewWorkoutScreen() {
                 ? `体重とメッツから推定しています（${Math.round(estimatedKcal)} kcal）`
                 : '体重が未登録のため推定できません。直接入力してください。'
               : undefined
-          }>
+          }
+        >
           <NumberInput
             value={kcalText}
             onChangeText={setKcalText}
@@ -170,7 +183,7 @@ export default function NewWorkoutScreen() {
 
       <Button
         title={saving ? '保存中…' : '保存する'}
-        onPress={handleSave}
+        onPress={() => void handleSave()}
         disabled={saving || !canSave}
       />
     </Screen>

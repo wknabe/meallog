@@ -5,16 +5,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  Button,
-  Field,
-  NumberInput,
-  SegmentedControl,
-  TextField,
-} from '@/components/ui/controls';
+import { Button, Field, NumberInput, SegmentedControl, TextField } from '@/components/ui/controls';
 import { Card, CardTitle, Screen } from '@/components/ui/layout';
-import { MACRO_KEYS, MINERAL_KEYS, NUTRIENT_LABELS, VITAMIN_KEYS, type NutrientKey } from '@/db/nutrients';
+import {
+  MACRO_KEYS,
+  MINERAL_KEYS,
+  NUTRIENT_LABELS,
+  VITAMIN_KEYS,
+  type NutrientKey,
+} from '@/db/nutrients';
 import { createProduct, getProductForEdit, updateProduct } from '@/db/repo/products';
+import { reportError } from '@/lib/errors';
 import { OCR_AVAILABLE, recognizeNutritionLabel, type LabelBasis } from '@/lib/ocr';
 import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
 import { useAppStore } from '@/store/app';
@@ -96,8 +97,14 @@ export default function ProductEditScreen() {
     }
     const result =
       source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+          });
     if (result.canceled || !result.assets?.[0]) return;
 
     const asset = result.assets[0];
@@ -185,9 +192,7 @@ export default function ProductEditScreen() {
       <Screen>
         <Card>
           <CardTitle>商品が見つかりません</CardTitle>
-          <Text style={styles.note}>
-            削除された可能性があります。前の画面に戻ってください。
-          </Text>
+          <Text style={styles.note}>削除された可能性があります。前の画面に戻ってください。</Text>
           <Button title="戻る" variant="secondary" onPress={() => router.back()} />
         </Card>
       </Screen>
@@ -204,13 +209,8 @@ export default function ProductEditScreen() {
       <View style={styles.steps}>
         {STEPS.map((step, index) => (
           <View key={step} style={styles.step}>
-            <View
-              style={[
-                styles.stepBadge,
-                index <= currentStep && styles.stepBadgeActive,
-              ]}>
-              <Text
-                style={[styles.stepNumber, index <= currentStep && styles.stepNumberActive]}>
+            <View style={[styles.stepBadge, index <= currentStep && styles.stepBadgeActive]}>
+              <Text style={[styles.stepNumber, index <= currentStep && styles.stepNumberActive]}>
                 {index + 1}
               </Text>
             </View>
@@ -226,7 +226,10 @@ export default function ProductEditScreen() {
           <>
             <Image source={{ uri }} style={styles.photo} contentFit="contain" />
             <View style={styles.photoActions}>
-              <Pressable onPress={() => attachPhoto('camera')} style={styles.photoAction}>
+              <Pressable
+                onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
+                style={styles.photoAction}
+              >
                 <Text style={styles.photoActionText}>撮り直す</Text>
               </Pressable>
               <Pressable
@@ -236,18 +239,25 @@ export default function ProductEditScreen() {
                   setPhotoPath(null);
                   setPreviewUri(null);
                 }}
-                style={styles.photoAction}>
+                style={styles.photoAction}
+              >
                 <Text style={[styles.photoActionText, { color: colors.danger }]}>削除</Text>
               </Pressable>
             </View>
           </>
         ) : (
           <View style={styles.photoButtons}>
-            <Pressable onPress={() => attachPhoto('camera')} style={styles.photoButton}>
+            <Pressable
+              onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
+              style={styles.photoButton}
+            >
               <Ionicons name="camera-outline" size={18} color={colors.primary} />
               <Text style={styles.photoButtonText}>撮影</Text>
             </Pressable>
-            <Pressable onPress={() => attachPhoto('library')} style={styles.photoButton}>
+            <Pressable
+              onPress={() => void attachPhoto('library').catch(reportError('写真の取り込み'))}
+              style={styles.photoButton}
+            >
               <Ionicons name="images-outline" size={18} color={colors.primary} />
               <Text style={styles.photoButtonText}>写真を選ぶ</Text>
             </Pressable>
@@ -300,14 +310,19 @@ export default function ProductEditScreen() {
                 [
                   { text: 'キャンセル', style: 'cancel' },
                   { text: '切り替える', onPress: () => setBasis(value) },
-                ]
+                ],
               );
             }}
           />
         </Field>
         {basis === 'serving' && (
           <Field label="1食の内容量" hint="100gあたりに換算して保存します">
-            <NumberInput value={servingGrams} onChangeText={setServingGrams} unit="g" placeholder="110" />
+            <NumberInput
+              value={servingGrams}
+              onChangeText={setServingGrams}
+              unit="g"
+              placeholder="110"
+            />
           </Field>
         )}
       </Card>
@@ -347,19 +362,25 @@ export default function ProductEditScreen() {
 
       <Button
         title={saving ? '保存中…' : editingId != null ? '更新する' : '保存する'}
-        onPress={handleSave}
+        onPress={() => void handleSave()}
         disabled={saving || !canSave}
       />
-      {!canSave && (
-        <Text style={styles.note}>商品名とエネルギーを入力すると保存できます。</Text>
-      )}
+      {!canSave && <Text style={styles.note}>商品名とエネルギーを入力すると保存できます。</Text>}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: { textAlign: 'center', color: colors.textFaint, padding: spacing.xl },
-  steps: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.sm },
+  loading: {
+    textAlign: 'center',
+    color: colors.textFaint,
+    padding: spacing.xl,
+  },
+  steps: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+  },
   step: { alignItems: 'center', gap: 4 },
   stepBadge: {
     width: 26,
@@ -370,7 +391,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepBadgeActive: { backgroundColor: colors.primary },
-  stepNumber: { fontSize: fontSize.xs, fontWeight: '700', color: colors.textFaint },
+  stepNumber: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.textFaint,
+  },
   stepNumberActive: { color: colors.textOnPrimary },
   stepLabel: { fontSize: fontSize.xs, color: colors.textSub },
 
@@ -380,9 +405,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surfaceMuted,
   },
-  photoActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md },
+  photoActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+  },
   photoAction: { padding: spacing.xs },
-  photoActionText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  photoActionText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
   photoButtons: { flexDirection: 'row', gap: spacing.md },
   photoButton: {
     flex: 1,
@@ -395,9 +428,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  photoButtonText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  photoButtonText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
 
   toggle: { paddingVertical: spacing.sm },
-  toggleText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  toggleText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
   note: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 18 },
 });

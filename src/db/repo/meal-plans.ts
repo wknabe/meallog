@@ -1,7 +1,7 @@
 /** 献立の保存と読み込み */
 import { getDatabase } from '@/db';
 import { consumeForDish } from '@/db/repo/pantry';
-import { dishNutrition, getDish, type Dish } from '@/db/repo/dishes';
+import { dishNutrition, getDishes, type Dish } from '@/db/repo/dishes';
 import type { DayKey } from '@/lib/day';
 import type { MealSlot } from '@/lib/types';
 
@@ -29,12 +29,13 @@ export async function savePlanForDate(date: DayKey, entries: PlanEntryInput[]): 
   const db = getDatabase();
   const now = new Date().toISOString();
   await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM meal_plans WHERE date = ?;', [date]);
+    // ref_type を絞る。将来 'food' の行を足したときに巻き添えで消さないため
+    await db.runAsync("DELETE FROM meal_plans WHERE date = ? AND ref_type = 'dish';", [date]);
     for (const [index, entry] of entries.entries()) {
       await db.runAsync(
         `INSERT INTO meal_plans (date, slot, ref_type, ref_id, quantity, sort_order, created_at)
          VALUES (?, ?, 'dish', ?, ?, ?, ?);`,
-        [date, entry.slot, entry.dishId, entry.servings, index, now]
+        [date, entry.slot, entry.dishId, entry.servings, index, now],
       );
     }
   });
@@ -48,13 +49,10 @@ async function toRecords(
     ref_id: number;
     quantity: number;
     cooked: number;
-  }[]
+  }[],
 ): Promise<PlanEntryRecord[]> {
-  // 料理はまとめて引きたいが、材料や味タグの組み立てを getDish に任せているため
-  // ここでは重複しないidだけを取得して使い回す
-  const uniqueIds = [...new Set(rows.map((row) => row.ref_id))];
-  const dishes = new Map<number, Dish | null>();
-  for (const id of uniqueIds) dishes.set(id, await getDish(id));
+  // 1件ずつ引くと7日分で100クエリを超えるため、まとめて取得する
+  const dishes = await getDishes(rows.map((row) => row.ref_id));
 
   return rows.map((row) => ({
     id: row.id,
@@ -80,7 +78,7 @@ export async function listPlanForDate(date: DayKey): Promise<PlanEntryRecord[]> 
     `SELECT id, date, slot, ref_id, quantity, cooked FROM meal_plans
      WHERE date = ? AND ref_type = 'dish'
      ORDER BY sort_order ASC, id ASC;`,
-    [date]
+    [date],
   );
   return toRecords(rows);
 }
@@ -98,14 +96,14 @@ export async function listPlanForRange(from: DayKey, to: DayKey): Promise<PlanEn
     `SELECT id, date, slot, ref_id, quantity, cooked FROM meal_plans
      WHERE date BETWEEN ? AND ? AND ref_type = 'dish'
      ORDER BY date ASC, sort_order ASC, id ASC;`,
-    [from, to]
+    [from, to],
   );
   return toRecords(rows);
 }
 
 export async function deletePlanForDate(date: DayKey): Promise<void> {
   const db = getDatabase();
-  await db.runAsync('DELETE FROM meal_plans WHERE date = ?;', [date]);
+  await db.runAsync("DELETE FROM meal_plans WHERE date = ? AND ref_type = 'dish';", [date]);
 }
 
 /**
@@ -114,18 +112,28 @@ export async function deletePlanForDate(date: DayKey): Promise<void> {
  */
 export async function markCooked(entryId: number, cooked: boolean): Promise<void> {
   const db = getDatabase();
-  const row = await db.getFirstAsync<{ ref_id: number; quantity: number; cooked: number }>(
-    'SELECT ref_id, quantity, cooked FROM meal_plans WHERE id = ?;',
-    [entryId]
+
+  if (!cooked) {
+    // 取り消しても在庫は戻さない。作ったものを元に戻せるわけではないため
+    await db.runAsync('UPDATE meal_plans SET cooked = 0 WHERE id = ?;', [entryId]);
+    return;
+  }
+
+  const row = await db.getFirstAsync<{ ref_id: number; quantity: number }>(
+    'SELECT ref_id, quantity FROM meal_plans WHERE id = ?;',
+    [entryId],
   );
   if (!row) return;
 
-  await db.runAsync('UPDATE meal_plans SET cooked = ? WHERE id = ?;', [cooked ? 1 : 0, entryId]);
+  // 「未調理のときだけ1にする」を1文にまとめる。
+  // 読んでから書くと、素早く2回押したときに在庫が二重に減る
+  const result = await db.runAsync(
+    'UPDATE meal_plans SET cooked = 1 WHERE id = ? AND cooked = 0;',
+    [entryId],
+  );
+  if (result.changes !== 1) return;
 
-  // 既に作った状態から再度押されたときに二重で減らさない
-  if (cooked && row.cooked === 0) {
-    await consumeForDish(row.ref_id, row.quantity);
-  }
+  await consumeForDish(row.ref_id, row.quantity);
 }
 
 /** 献立の1日ぶんの栄養価 */
@@ -141,6 +149,6 @@ export function planTotals(entries: PlanEntryRecord[]) {
         carbG: totals.carbG + nutrition.nutrients.carb_g,
       };
     },
-    { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 }
+    { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
   );
 }

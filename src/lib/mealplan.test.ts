@@ -18,7 +18,7 @@ function dish(
   name: string,
   category: DishCategory,
   values: Partial<Nutrients>,
-  extra: Partial<PlanDish> = {}
+  extra: Partial<PlanDish> = {},
 ): PlanDish {
   return {
     id,
@@ -39,16 +39,26 @@ function buildCandidates(): PlanDish[] {
   const list: PlanDish[] = [];
   for (let i = 0; i < 6; i++) {
     list.push(
-      dish(100 + i, `主食${i}`, 'staple', { kcal: 230 + i * 20, protein_g: 4, fat_g: 1, carb_g: 50 })
+      dish(100 + i, `主食${i}`, 'staple', {
+        kcal: 230 + i * 20,
+        protein_g: 4,
+        fat_g: 1,
+        carb_g: 50,
+      }),
     );
     list.push(
-      dish(200 + i, `主菜${i}`, 'main', { kcal: 260 + i * 30, protein_g: 22, fat_g: 15, carb_g: 8 })
+      dish(200 + i, `主菜${i}`, 'main', {
+        kcal: 260 + i * 30,
+        protein_g: 22,
+        fat_g: 15,
+        carb_g: 8,
+      }),
     );
     list.push(
-      dish(300 + i, `副菜${i}`, 'side', { kcal: 90 + i * 10, protein_g: 4, fat_g: 5, carb_g: 8 })
+      dish(300 + i, `副菜${i}`, 'side', { kcal: 90 + i * 10, protein_g: 4, fat_g: 5, carb_g: 8 }),
     );
     list.push(
-      dish(400 + i, `汁物${i}`, 'soup', { kcal: 70 + i * 5, protein_g: 5, fat_g: 3, carb_g: 6 })
+      dish(400 + i, `汁物${i}`, 'soup', { kcal: 70 + i * 5, protein_g: 5, fat_g: 3, carb_g: 6 }),
     );
   }
   return list;
@@ -126,7 +136,7 @@ describe('generateDayPlan', () => {
     assert.equal(plan.meals.length, 3);
     assert.deepEqual(
       plan.meals.map((meal) => meal.slot),
-      ['breakfast', 'lunch', 'dinner']
+      ['breakfast', 'lunch', 'dinner'],
     );
   });
 
@@ -149,6 +159,22 @@ describe('generateDayPlan', () => {
     const plan = generateDayPlan(buildCandidates(), context());
     const error = Math.abs(plan.totals.kcal - 2000) / 2000;
     assert.ok(error < 0.15, `誤差が大きい: ${Math.round(plan.totals.kcal)}kcal`);
+  });
+
+  it('variant=0 では各枠で最も点数の良い候補が選ばれる', () => {
+    const candidates = buildCandidates();
+    const plan = generateDayPlan(candidates, context());
+    const breakfast = plan.meals[0];
+    const soup = breakfast.entries.find((entry) => entry.dish.category === 'soup');
+    // 朝食の汁物の割り当ては 2000*0.25*0.12 = 60kcal。70kcalの汁物0が最も近い
+    assert.equal(soup?.dish.name, '汁物0');
+  });
+
+  it('目標に届かないときは理由で伝える', () => {
+    const few = [dish(1, '軽い主食', 'staple', { kcal: 100 })];
+    const plan = generateDayPlan(few, context());
+    assert.equal(plan.calorieGapRemains, true);
+    assert.ok(plan.reasons.some((reason) => reason.includes('届きませんでした')));
   });
 
   it('variant を変えると別の組み合わせになる', () => {
@@ -227,6 +253,36 @@ describe('fitCalories', () => {
     assert.equal(fitted[0].entries[0].servings, 0.5);
   });
 
+  it('2回かけても結果が変わらない（冪等）', () => {
+    const meals = [
+      {
+        slot: 'breakfast' as const,
+        entries: [
+          { dish: dish(1, '主食', 'staple', { kcal: 250 }), servings: 1 },
+          { dish: dish(2, '主菜', 'main', { kcal: 300 }), servings: 1 },
+        ],
+      },
+    ];
+    const once = fitCalories(meals, 700);
+    const twice = fitCalories(once, 700);
+    assert.deepEqual(
+      twice.map((meal) => meal.entries.map((entry) => entry.servings)),
+      once.map((meal) => meal.entries.map((entry) => entry.servings)),
+    );
+  });
+
+  it('主食1品あたりのカロリー上限で頭打ちになる', () => {
+    // 500kcalの主食を2倍にすると1,000kcalになってしまうので上限で止める
+    const meals = [
+      {
+        slot: 'dinner' as const,
+        entries: [{ dish: dish(1, '大盛りごはん', 'staple', { kcal: 500 }), servings: 1 }],
+      },
+    ];
+    const fitted = fitCalories(meals, 3000);
+    assert.ok(fitted[0].entries[0].servings <= 1.2, `servings=${fitted[0].entries[0].servings}`);
+  });
+
   it('主食がなければ何も変えない', () => {
     const meals = [
       {
@@ -259,7 +315,7 @@ describe('calcDeficits', () => {
   it('目安に足りない栄養素だけを返す', () => {
     const deficits = calcDeficits(
       { fiber_g: 10, calcium_mg: 900 },
-      { fiber_g: 20, calcium_mg: 700 }
+      { fiber_g: 20, calcium_mg: 700 },
     );
     assert.equal(deficits.fiber_g, 0.5);
     assert.equal(deficits.calcium_mg, undefined);

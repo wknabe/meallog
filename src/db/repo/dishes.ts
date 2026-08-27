@@ -89,11 +89,11 @@ async function attachDetails(rows: DishRow[]): Promise<Dish[]> {
      JOIN foods f ON f.id = di.food_id
      WHERE di.dish_id IN (${placeholders})
      ORDER BY di.sort_order ASC, di.id ASC;`,
-    ids
+    ids,
   );
   const tasteRows = await db.getAllAsync<{ dish_id: number; taste: string }>(
     `SELECT dish_id, taste FROM dish_tastes WHERE dish_id IN (${placeholders});`,
-    ids
+    ids,
   );
 
   const ingredientsByDish = new Map<number, DishIngredient[]>();
@@ -140,6 +140,19 @@ export async function getDish(id: number): Promise<Dish | null> {
   return dish ?? null;
 }
 
+/** 複数の料理をまとめて取得する。1件ずつ getDish を呼ぶとクエリ数が跳ね上がるため */
+export async function getDishes(ids: number[]): Promise<Map<number, Dish>> {
+  if (ids.length === 0) return new Map();
+  const db = getDatabase();
+  const unique = [...new Set(ids)];
+  const rows = await db.getAllAsync<DishRow>(
+    `SELECT * FROM dishes WHERE id IN (${unique.map(() => '?').join(',')});`,
+    unique,
+  );
+  const dishes = await attachDetails(rows);
+  return new Map(dishes.map((dish) => [dish.id, dish]));
+}
+
 export type DishFilter = {
   category?: DishCategory;
   cuisine?: Cuisine;
@@ -182,7 +195,7 @@ export async function listDishes(filter: DishFilter = {}): Promise<Dish[]> {
     `SELECT * FROM dishes ${where}
      ORDER BY is_favorite DESC, use_count DESC, name ASC
      LIMIT ?;`,
-    params
+    params,
   );
   return attachDetails(rows);
 }
@@ -240,7 +253,7 @@ export type DishInput = {
 async function writeDishDetails(
   dishId: number,
   input: DishInput,
-  db: ReturnType<typeof getDatabase>
+  db: ReturnType<typeof getDatabase>,
 ): Promise<void> {
   // 味タグと材料は差分ではなく毎回入れ替える。並び順の管理が単純になるため
   await db.runAsync('DELETE FROM dish_tastes WHERE dish_id = ?;', [dishId]);
@@ -256,7 +269,9 @@ async function writeDishDetails(
     food_id: number;
     display_qty: number | null;
     display_unit: string | null;
-  }>('SELECT food_id, display_qty, display_unit FROM dish_ingredients WHERE dish_id = ?;', [dishId]);
+  }>('SELECT food_id, display_qty, display_unit FROM dish_ingredients WHERE dish_id = ?;', [
+    dishId,
+  ]);
   const displayByFood = new Map(previous.map((row) => [row.food_id, row]));
 
   await db.runAsync('DELETE FROM dish_ingredients WHERE dish_id = ?;', [dishId]);
@@ -274,7 +289,7 @@ async function writeDishDetails(
         display?.display_unit ?? null,
         ingredient.isSeasoning ? 1 : 0,
         index,
-      ]
+      ],
     );
   }
 }
@@ -301,7 +316,7 @@ export async function createDish(input: DishInput): Promise<number> {
         input.steps,
         now,
         now,
-      ]
+      ],
     );
     dishId = result.lastInsertRowId;
     await writeDishDetails(dishId, input, db);
@@ -332,7 +347,7 @@ export async function updateDish(id: number, input: DishInput): Promise<void> {
         input.steps,
         new Date().toISOString(),
         id,
-      ]
+      ],
     );
     await writeDishDetails(id, input, db);
   });
@@ -342,7 +357,7 @@ export async function deleteDish(id: number): Promise<void> {
   const db = getDatabase();
   const row = await db.getFirstAsync<{ seed_key: string | null }>(
     'SELECT seed_key FROM dishes WHERE id = ?;',
-    [id]
+    [id],
   );
   // 材料と味タグは ON DELETE CASCADE で一緒に消える
   await db.runAsync('DELETE FROM dishes WHERE id = ?;', [id]);

@@ -36,7 +36,7 @@ export default function ShoppingScreen() {
   useFocusEffect(
     useCallback(() => {
       void reload();
-    }, [reload])
+    }, [reload]),
   );
 
   async function rebuild() {
@@ -54,8 +54,12 @@ export default function ShoppingScreen() {
   }
 
   async function toggle(item: ShoppingItem) {
-    await toggleShoppingItem(item.id, !item.checked);
-    await reload();
+    try {
+      await toggleShoppingItem(item.id, !item.checked);
+      await reload();
+    } catch (error) {
+      console.error('チェックの更新に失敗しました', error);
+    }
   }
 
   async function moveToPantry() {
@@ -65,9 +69,14 @@ export default function ShoppingScreen() {
       const moved = await moveCheckedToPantry(list.id);
       Alert.alert(
         moved > 0 ? `${moved}品を冷蔵庫に追加しました` : '追加する食材がありません',
-        moved > 0 ? 'チェックした食材を在庫に反映しました。' : 'チェックを付けてから実行してください。'
+        moved > 0
+          ? 'チェックした食材を在庫に反映しました。'
+          : 'チェックを付けてから実行してください。',
       );
       await reload();
+    } catch (error) {
+      console.error('冷蔵庫への反映に失敗しました', error);
+      Alert.alert('反映できませんでした', 'もう一度お試しください。');
     } finally {
       setBusy(false);
     }
@@ -76,11 +85,15 @@ export default function ShoppingScreen() {
   async function shareList() {
     if (!list) return;
     const lines = list.items.map(
-      (item) => `${item.checked ? '☑' : '☐'} ${item.name}${item.label ? ` ${item.label}` : ''}`
+      (item) => `${item.checked ? '☑' : '☐'} ${item.name}${item.label ? ` ${item.label}` : ''}`,
     );
-    await Share.share({
-      message: `買い物リスト（${formatDayLabel(from)}〜${formatDayLabel(to)}）\n\n${lines.join('\n')}`,
-    });
+    try {
+      await Share.share({
+        message: `買い物リスト（${formatDayLabel(from)}〜${formatDayLabel(to)}）\n\n${lines.join('\n')}`,
+      });
+    } catch (error) {
+      console.error('買い物リストの共有に失敗しました', error);
+    }
   }
 
   // 売り場ごとにまとめる
@@ -103,7 +116,7 @@ export default function ShoppingScreen() {
         </Text>
         <Button
           title={busy ? '集計中…' : list == null ? '買い物リストを作る' : '集計し直す'}
-          onPress={rebuild}
+          onPress={() => void rebuild()}
           disabled={busy}
         />
       </Card>
@@ -114,10 +127,7 @@ export default function ShoppingScreen() {
           description="献立を作ってから集計すると、必要な食材が並びます。"
         />
       ) : list.items.length === 0 ? (
-        <EmptyState
-          title="買い足すものはありません"
-          description="冷蔵庫の在庫で足りています。"
-        />
+        <EmptyState title="買い足すものはありません" description="冷蔵庫の在庫で足りています。" />
       ) : (
         <>
           {[...grouped.entries()].map(([category, items]) => (
@@ -142,8 +152,12 @@ export default function ShoppingScreen() {
             </Card>
           ))}
 
-          <Button title="チェックした食材を冷蔵庫へ" variant="secondary" onPress={moveToPantry} />
-          <Button title="リストを共有" variant="ghost" onPress={shareList} />
+          <Button
+            title="チェックした食材を冷蔵庫へ"
+            variant="secondary"
+            onPress={() => void moveToPantry()}
+          />
+          <Button title="リストを共有" variant="ghost" onPress={() => void shareList()} />
         </>
       )}
     </Screen>
@@ -153,7 +167,12 @@ export default function ShoppingScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   note: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   checkbox: {
     width: 22,
     height: 22,
@@ -163,7 +182,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   name: { fontSize: fontSize.md, color: colors.text },
   nameChecked: { color: colors.textFaint, textDecorationLine: 'line-through' },
   amount: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600' },

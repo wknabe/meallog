@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button, Chip, ChipGroup, Field } from '@/components/ui/controls';
@@ -47,10 +47,13 @@ export default function GeneratePlanScreen() {
   const [plan, setPlan] = useState<DayPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 条件を素早く切り替えたとき、古い結果が新しい結果を上書きしないようにする
+  const requestIdRef = useRef(0);
 
   const run = useCallback(
     async (nextVariant: number) => {
       if (!profile) return;
+      const requestId = ++requestIdRef.current;
       setLoading(true);
       try {
         const result = await generatePlan({
@@ -70,15 +73,17 @@ export default function GeneratePlanScreen() {
           variant: nextVariant,
           usePantry,
         });
+        if (requestId !== requestIdRef.current) return;
         setPlan(result);
       } catch (error) {
+        if (requestId !== requestIdRef.current) return;
         console.error('献立の作成に失敗しました', error);
         Alert.alert('作成できませんでした', 'もう一度お試しください。');
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
     },
-    [profile, date, cuisine, effort, volume, tastes, usePantry]
+    [profile, date, cuisine, effort, volume, tastes, usePantry],
   );
 
   // 条件を変えたら作り直す
@@ -98,8 +103,8 @@ export default function GeneratePlanScreen() {
             slot: meal.slot,
             dishId: entry.dish.id,
             servings: entry.servings,
-          }))
-        )
+          })),
+        ),
       );
       router.replace('/menu/today');
     } catch (error) {
@@ -177,7 +182,7 @@ export default function GeneratePlanScreen() {
                   setTastes(
                     tastes.includes(value)
                       ? tastes.filter((taste) => taste !== value)
-                      : [...tastes, value]
+                      : [...tastes, value],
                   )
                 }
               />
@@ -225,14 +230,13 @@ export default function GeneratePlanScreen() {
                 fatG: sum.fatG + entry.dish.perServing.fat_g * entry.servings,
                 carbG: sum.carbG + entry.dish.perServing.carb_g * entry.servings,
               }),
-              { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 }
+              { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
             );
             return (
               <Card key={meal.slot}>
                 <CardTitle
-                  right={
-                    <Text style={styles.mealKcal}>{Math.round(mealTotals.kcal)} kcal</Text>
-                  }>
+                  right={<Text style={styles.mealKcal}>{Math.round(mealTotals.kcal)} kcal</Text>}
+                >
                   {MEAL_SLOT_LABELS[meal.slot]}
                 </CardTitle>
                 {meal.entries.map((entry) => (
@@ -259,10 +263,7 @@ export default function GeneratePlanScreen() {
               </Text>
             </View>
             <Divider />
-            <Row
-              label="目標との差"
-              value={formatDiff(plan.totals.kcal - profile.targetKcal)}
-            />
+            <Row label="目標との差" value={formatDiff(plan.totals.kcal - profile.targetKcal)} />
             <Text style={styles.mealMacros}>
               P {Math.round(plan.totals.proteinG)}g ／ F {Math.round(plan.totals.fatG)}g ／ C{' '}
               {Math.round(plan.totals.carbG)}g
@@ -275,14 +276,15 @@ export default function GeneratePlanScreen() {
               setVariant(next);
               void run(next);
             }}
-            style={styles.reroll}>
+            style={styles.reroll}
+          >
             <Ionicons name="refresh" size={16} color={colors.primary} />
             <Text style={styles.rerollText}>別の献立にする</Text>
           </Pressable>
 
           <Button
             title={saving ? '保存中…' : 'この献立を保存'}
-            onPress={handleSave}
+            onPress={() => void handleSave()}
             disabled={saving}
           />
         </>

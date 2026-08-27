@@ -10,7 +10,14 @@ import { listDailyActivityKcal, listHealthDaily } from '@/db/repo/activities';
 import { listDailyTotals } from '@/db/repo/meals';
 import { listWeights, type WeightRecord } from '@/db/repo/weights';
 import { useTodayKey } from '@/hooks/use-today';
-import { addDays, calcAge, dateRange, formatDayShort, formatDayLabel, type DayKey } from '@/lib/day';
+import {
+  addDays,
+  calcAge,
+  dateRange,
+  formatDayShort,
+  formatDayLabel,
+  type DayKey,
+} from '@/lib/day';
 import { estimateBurn } from '@/lib/energy';
 import { calcBmi } from '@/lib/targets';
 import { useAppStore } from '@/store/app';
@@ -33,6 +40,8 @@ type DayRow = {
   fatG: number;
   carbG: number;
   burnKcal: number;
+  /** 消費カロリーを推定できたか。体重が一度も分からない日は false */
+  burnKnown: boolean;
   exerciseKcal: number;
   steps: number | null;
   weightKg: number | null;
@@ -90,10 +99,8 @@ export default function AnalysisScreen() {
             : 0;
 
           const watchKcal = healthByDate.get(date)?.totalKcal ?? null;
-          const burnKcal =
-            settings.burnSource === 'watch' && watchKcal != null && watchKcal > 0
-              ? watchKcal
-              : estimate;
+          const useWatch = settings.burnSource === 'watch' && watchKcal != null && watchKcal > 0;
+          const burnKcal = useWatch ? watchKcal : estimate;
 
           const totalsRow = totalsByDate.get(date);
           return {
@@ -103,6 +110,7 @@ export default function AnalysisScreen() {
             fatG: totalsRow?.fatG ?? 0,
             carbG: totalsRow?.carbG ?? 0,
             burnKcal,
+            burnKnown: useWatch || weightForDay != null,
             exerciseKcal: activityByDate.get(date) ?? 0,
             steps: healthByDate.get(date)?.steps ?? null,
             weightKg: weight,
@@ -117,11 +125,12 @@ export default function AnalysisScreen() {
       return () => {
         cancelled = true;
       };
-    }, [from, todayKey, profile, settings.burnSource, currentWeightKg])
+    }, [from, todayKey, profile, settings.burnSource, currentWeightKg]),
   );
 
-  // 記録がある日だけを合計する。記録し忘れの日を0として数えると収支が実態とずれる
-  const recorded = useMemo(() => rows.filter((row) => row.intakeKcal > 0), [rows]);
+  // 記録がある日だけを合計する。記録し忘れの日を0として数えると収支が実態とずれる。
+  // 体重が分からず消費を推定できない日も、収支が出せないので合計から外す
+  const recorded = useMemo(() => rows.filter((row) => row.intakeKcal > 0 && row.burnKnown), [rows]);
   const totalIntake = recorded.reduce((sum, row) => sum + row.intakeKcal, 0);
   const totalBurn = recorded.reduce((sum, row) => sum + row.burnKcal, 0);
   const balance = totalIntake - totalBurn;
@@ -130,7 +139,10 @@ export default function AnalysisScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="分析" subtitle={`${formatDayLabel(from)} 〜 ${formatDayLabel(todayKey)}`} />
+      <ScreenHeader
+        title="分析"
+        subtitle={`${formatDayLabel(from)} 〜 ${formatDayLabel(todayKey)}`}
+      />
 
       <SegmentedControl<Tab>
         options={[
@@ -143,11 +155,7 @@ export default function AnalysisScreen() {
         onChange={setTab}
       />
 
-      <SegmentedControl<number>
-        options={PERIODS}
-        value={days}
-        onChange={setDays}
-      />
+      <SegmentedControl<number> options={PERIODS} value={days} onChange={setDays} />
 
       {recorded.length === 0 ? (
         <EmptyState
@@ -173,7 +181,8 @@ export default function AnalysisScreen() {
                 style={[
                   styles.balanceValue,
                   { color: balance <= 0 ? colors.success : colors.danger },
-                ]}>
+                ]}
+              >
                 {formatSigned(balance)} kcal
               </Text>
             </View>
@@ -203,12 +212,16 @@ export default function AnalysisScreen() {
                 <Row
                   label={formatDayLabel(row.date)}
                   sub={
-                    row.intakeKcal > 0
-                      ? `摂取 ${Math.round(row.intakeKcal)} ／ 消費 ${Math.round(row.burnKcal)}`
-                      : '記録なし'
+                    row.intakeKcal === 0
+                      ? '記録なし'
+                      : row.burnKnown
+                        ? `摂取 ${Math.round(row.intakeKcal)} ／ 消費 ${Math.round(row.burnKcal)}`
+                        : `摂取 ${Math.round(row.intakeKcal)} ／ 消費 —`
                   }
                   value={
-                    row.intakeKcal > 0 ? `${formatSigned(row.intakeKcal - row.burnKcal)}` : '—'
+                    row.intakeKcal > 0 && row.burnKnown
+                      ? `${formatSigned(row.intakeKcal - row.burnKcal)}`
+                      : '—'
                   }
                 />
               </View>
@@ -274,7 +287,7 @@ export default function AnalysisScreen() {
               <Row
                 label="期間の増減"
                 value={`${formatSignedKg(
-                  weights[weights.length - 1].weightKg - weights[0].weightKg
+                  weights[weights.length - 1].weightKg - weights[0].weightKg,
                 )} kg`}
               />
             )}
@@ -367,7 +380,9 @@ function MacroRow({
     <Row
       label={label}
       sub={`目標 ${Math.round(target).toLocaleString()}g に対して ${ratio}%`}
-      value={<Text style={{ color, fontWeight: '700' }}>{Math.round(actual).toLocaleString()}g</Text>}
+      value={
+        <Text style={{ color, fontWeight: '700' }}>{Math.round(actual).toLocaleString()}g</Text>
+      }
     />
   );
 }
@@ -383,10 +398,22 @@ function formatSignedKg(value: number): string {
 
 const styles = StyleSheet.create({
   days: { fontSize: fontSize.xs, color: colors.textFaint },
-  balanceRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  balanceLabel: { fontSize: fontSize.md, fontWeight: '700', color: colors.text },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  balanceLabel: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.text,
+  },
   balanceValue: { fontSize: fontSize.xl, fontWeight: '700' },
-  balanceNote: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 18 },
+  balanceNote: {
+    fontSize: fontSize.xs,
+    color: colors.textFaint,
+    lineHeight: 18,
+  },
   empty: {
     fontSize: fontSize.sm,
     color: colors.textFaint,

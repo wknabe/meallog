@@ -10,6 +10,7 @@ import { DateField, TimeField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Screen } from '@/components/ui/layout';
 import { createFavorite } from '@/db/repo/favorites';
 import { createMeal, deleteMeal, updateMeal } from '@/db/repo/meals';
+import { reportError } from '@/lib/errors';
 import { formatDayLabel, fromDayKey, logicalDate, toDayKey } from '@/lib/day';
 import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
 import { formatGrams } from '@/lib/units';
@@ -94,11 +95,20 @@ export default function EditMealScreen() {
     }
     const result =
       source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+          });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
-    const path = await savePhoto(asset.uri, 'meal', { width: asset.width, height: asset.height });
+    const path = await savePhoto(asset.uri, 'meal', {
+      width: asset.width,
+      height: asset.height,
+    });
     // 古い写真は保存が成功するまで消さない（保存せずに戻ったときに画像だけ失わないため）
     draft.replacePhoto(path);
   }
@@ -112,7 +122,7 @@ export default function EditMealScreen() {
     if (savable.length === 0) {
       Alert.alert(
         '登録できません',
-        '手入力した項目は「よく食べる食事」に登録できません。商品として登録すると次回から検索できます。'
+        '手入力した項目は「よく食べる食事」に登録できません。商品として登録すると次回から検索できます。',
       );
       return;
     }
@@ -128,7 +138,10 @@ export default function EditMealScreen() {
           text: '登録する',
           onPress: async () => {
             await createFavorite({
-              name: savable.map((item) => item.name).join('・').slice(0, 30),
+              name: savable
+                .map((item) => item.name)
+                .join('・')
+                .slice(0, 30),
               slot: draft.slot,
               items: savable.map((item) => ({
                 refType: item.refType,
@@ -140,7 +153,7 @@ export default function EditMealScreen() {
             Alert.alert('登録しました');
           },
         },
-      ]
+      ],
     );
   }
 
@@ -150,7 +163,10 @@ export default function EditMealScreen() {
     <Screen>
       {/* 食事の区分 */}
       <SegmentedControl<MealSlot>
-        options={MEAL_SLOT_ORDER.map((slot) => ({ value: slot, label: MEAL_SLOT_LABELS[slot] }))}
+        options={MEAL_SLOT_ORDER.map((slot) => ({
+          value: slot,
+          label: MEAL_SLOT_LABELS[slot],
+        }))}
         value={draft.slot}
         onChange={draft.setSlot}
       />
@@ -171,15 +187,13 @@ export default function EditMealScreen() {
           </View>
           <View style={styles.timeBox}>
             <Text style={styles.label}>時刻</Text>
-            <TimeField
-              value={draft.eatenAt}
-              onChange={draft.setEatenAt}
-            />
+            <TimeField value={draft.eatenAt} onChange={draft.setEatenAt} />
           </View>
         </View>
         {logical !== calendarDate && (
           <Text style={styles.note}>
-            1日の区切りが{settings.dayStartHour}時のため、{formatDayLabel(logical)}ぶんとして集計されます
+            1日の区切りが{settings.dayStartHour}時のため、
+            {formatDayLabel(logical)}ぶんとして集計されます
           </Text>
         )}
       </Card>
@@ -189,23 +203,30 @@ export default function EditMealScreen() {
         <View>
           <Image source={{ uri }} style={styles.photo} contentFit="cover" />
           <View style={styles.photoActions}>
-            <Pressable onPress={() => attachPhoto('library')} style={styles.photoAction}>
+            <Pressable
+              onPress={() => void attachPhoto('library').catch(reportError('写真の取り込み'))}
+              style={styles.photoAction}
+            >
               <Text style={styles.photoActionText}>写真を変更</Text>
             </Pressable>
-            <Pressable
-              onPress={() => draft.replacePhoto(null)}
-              style={styles.photoAction}>
+            <Pressable onPress={() => draft.replacePhoto(null)} style={styles.photoAction}>
               <Text style={[styles.photoActionText, { color: colors.danger }]}>削除</Text>
             </Pressable>
           </View>
         </View>
       ) : (
         <View style={styles.photoButtons}>
-          <Pressable onPress={() => attachPhoto('camera')} style={styles.photoButton}>
+          <Pressable
+            onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
+            style={styles.photoButton}
+          >
             <Ionicons name="camera-outline" size={18} color={colors.primary} />
             <Text style={styles.photoButtonText}>撮影</Text>
           </Pressable>
-          <Pressable onPress={() => attachPhoto('library')} style={styles.photoButton}>
+          <Pressable
+            onPress={() => void attachPhoto('library').catch(reportError('写真の取り込み'))}
+            style={styles.photoButton}
+          >
             <Ionicons name="images-outline" size={18} color={colors.primary} />
             <Text style={styles.photoButtonText}>写真を選ぶ</Text>
           </Pressable>
@@ -227,15 +248,14 @@ export default function EditMealScreen() {
                   <Text style={styles.itemName} numberOfLines={2}>
                     {item.name}
                   </Text>
-                  <Text style={styles.itemAmount}>
-                    {item.unitLabel ?? formatGrams(item.grams)}
-                  </Text>
+                  <Text style={styles.itemAmount}>{item.unitLabel ?? formatGrams(item.grams)}</Text>
                 </View>
                 <Text style={styles.itemKcal}>{Math.round(item.nutrients.kcal)} kcal</Text>
                 <Pressable
                   onPress={() => draft.removeItem(item.key)}
                   hitSlop={8}
-                  style={styles.removeButton}>
+                  style={styles.removeButton}
+                >
                   <Ionicons name="close-circle" size={20} color={colors.textFaint} />
                 </Pressable>
               </View>
@@ -279,7 +299,11 @@ export default function EditMealScreen() {
         />
       </Card>
 
-      <Button title={saving ? '保存中…' : '保存する'} onPress={handleSave} disabled={saving} />
+      <Button
+        title={saving ? '保存中…' : '保存する'}
+        onPress={() => void handleSave()}
+        disabled={saving}
+      />
       <Button title="よく食べる食事に登録" variant="secondary" onPress={saveAsFavorite} />
       {draft.mealId != null && (
         <Button title="この記録を削除" variant="ghost" onPress={handleDelete} />
@@ -301,15 +325,34 @@ function MacroChip({ label, value, color }: { label: string; value: number; colo
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  label: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600', marginBottom: 4 },
+  label: {
+    fontSize: fontSize.sm,
+    color: colors.textSub,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
   dateRow: { flexDirection: 'row', gap: spacing.md },
   timeBox: { width: 110 },
   note: { fontSize: fontSize.xs, color: colors.warning, lineHeight: 16 },
 
-  photo: { width: '100%', height: 200, borderRadius: radius.lg, backgroundColor: colors.surfaceMuted },
-  photoActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md, paddingTop: spacing.xs },
+  photo: {
+    width: '100%',
+    height: 200,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+    paddingTop: spacing.xs,
+  },
   photoAction: { padding: spacing.xs },
-  photoActionText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  photoActionText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
   photoButtons: { flexDirection: 'row', gap: spacing.md },
   photoButton: {
     flex: 1,
@@ -323,26 +366,59 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  photoButtonText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
+  photoButtonText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
 
-  empty: { fontSize: fontSize.sm, color: colors.textFaint, textAlign: 'center', paddingVertical: spacing.md },
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  empty: {
+    fontSize: fontSize.sm,
+    color: colors.textFaint,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   itemName: { fontSize: fontSize.md, color: colors.text },
   itemAmount: { fontSize: fontSize.xs, color: colors.textFaint, marginTop: 2 },
   itemKcal: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600' },
   removeButton: { padding: 2 },
 
-  addRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   addText: { fontSize: fontSize.md, color: colors.primary, fontWeight: '600' },
 
-  totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
   totalLabel: { fontSize: fontSize.md, fontWeight: '700', color: colors.text },
   totalKcal: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text },
   macroRow: { flexDirection: 'row', gap: spacing.lg },
   macroChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  macroMark: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  macroMark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   macroMarkText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  macroValue: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600' },
+  macroValue: {
+    fontSize: fontSize.sm,
+    color: colors.textSub,
+    fontWeight: '600',
+  },
 
   memo: { minHeight: 60, textAlignVertical: 'top' },
 });

@@ -15,15 +15,23 @@ import {
 import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { resetDatabase } from '@/db';
+import { listDailyActivityKcal } from '@/db/repo/activities';
 import { countFoods } from '@/db/repo/foods';
 import { listDailyTotals } from '@/db/repo/meals';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
 import { exportBackup, importBackup, shareBackup } from '@/lib/backup';
+import { exerciseBonus } from '@/lib/energy';
 import { formatBytes, photoStorageBytes } from '@/lib/photos';
 import { addDays, calcAge, formatDayLabel, today } from '@/lib/day';
 import { computeAdjustment, describeAdjustment } from '@/lib/adjustment';
 import { ACTIVITY_LEVELS, calcTargets } from '@/lib/targets';
-import type { ActivityLevel, AdjustmentDistribution, BurnSource, Gender, Profile } from '@/lib/types';
+import type {
+  ActivityLevel,
+  AdjustmentDistribution,
+  BurnSource,
+  Gender,
+  Profile,
+} from '@/lib/types';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, spacing } from '@/theme/colors';
 
@@ -37,7 +45,7 @@ export default function SettingsScreen() {
 
   const [heightText, setHeightText] = useState(profile ? String(profile.heightCm) : '');
   const [targetWeightText, setTargetWeightText] = useState(
-    profile?.targetWeightKg != null ? String(profile.targetWeightKg) : ''
+    profile?.targetWeightKg != null ? String(profile.targetWeightKg) : '',
   );
   const [foodCount, setFoodCount] = useState<number | null>(null);
   const [photoBytes, setPhotoBytes] = useState<number | null>(null);
@@ -45,7 +53,9 @@ export default function SettingsScreen() {
   const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
-    countFoods().then(setFoodCount).catch(() => setFoodCount(null));
+    countFoods()
+      .then(setFoodCount)
+      .catch(() => setFoodCount(null));
     try {
       setPhotoBytes(photoStorageBytes());
     } catch {
@@ -58,15 +68,25 @@ export default function SettingsScreen() {
     if (!profile) return;
     let cancelled = false;
     const day = today(settings.dayStartHour);
-    listDailyTotals(addDays(day, -settings.adjustmentDays), addDays(day, -1))
-      .then((history) => {
+    const bonusSettings = {
+      addExerciseToTarget: settings.addExerciseToTarget,
+      exerciseAddRatio: settings.exerciseAddRatio,
+    };
+    Promise.all([
+      listDailyTotals(addDays(day, -settings.adjustmentDays), addDays(day, -1)),
+      listDailyActivityKcal(addDays(day, -settings.adjustmentDays), addDays(day, -1)),
+    ])
+      .then(([history, historyExercise]) => {
         if (cancelled) return;
+        // ホーム画面と同じ基準で計算する（運動ぶんの上乗せを含めた目標と比べる）
+        const exerciseByDate = new Map(historyExercise.map((row) => [row.date, row.kcal]));
         const result = computeAdjustment({
           targetKcal: profile.targetKcal,
           history: history.map((row) => ({
             date: row.date,
             intakeKcal: row.kcal,
             recorded: true,
+            bonusKcal: exerciseBonus(exerciseByDate.get(row.date) ?? 0, bonusSettings),
           })),
           settings: {
             enabled: settings.adjustmentEnabled,
@@ -84,6 +104,8 @@ export default function SettingsScreen() {
   }, [
     profile,
     settings.dayStartHour,
+    settings.addExerciseToTarget,
+    settings.exerciseAddRatio,
     settings.adjustmentEnabled,
     settings.adjustmentDays,
     settings.adjustmentCapPct,
@@ -133,14 +155,19 @@ export default function SettingsScreen() {
       targetWeightKg: profile.targetWeightKg,
       targetDate: profile.targetDate,
     });
-    await updateProfile({
-      ...profile,
-      targetKcal: result.kcal,
-      targetProteinG: result.proteinG,
-      targetFatG: result.fatG,
-      targetCarbG: result.carbG,
-      targetsOverridden: false,
-    });
+    try {
+      await updateProfile({
+        ...profile,
+        targetKcal: result.kcal,
+        targetProteinG: result.proteinG,
+        targetFatG: result.fatG,
+        targetCarbG: result.carbG,
+        targetsOverridden: false,
+      });
+    } catch (error) {
+      console.error('目標の再計算に失敗しました', error);
+      Alert.alert('やり直せませんでした', 'もう一度お試しください。');
+    }
   }
 
   /** 書き出して共有シートに渡す */
@@ -155,7 +182,7 @@ export default function SettingsScreen() {
       console.error('バックアップの書き出しに失敗しました', error);
       Alert.alert(
         '書き出せませんでした',
-        error instanceof Error ? error.message : 'もう一度お試しください。'
+        error instanceof Error ? error.message : 'もう一度お試しください。',
       );
     } finally {
       setBackupBusy(false);
@@ -187,20 +214,20 @@ export default function SettingsScreen() {
               await useAppStore.getState().bootstrap();
               Alert.alert(
                 '復元しました',
-                `${result.restored}件のデータ${result.photos > 0 ? `と${result.photos}枚の写真` : ''}を戻しました。`
+                `${result.restored}件のデータ${result.photos > 0 ? `と${result.photos}枚の写真` : ''}を戻しました。`,
               );
             } catch (error) {
               console.error('バックアップの復元に失敗しました', error);
               Alert.alert(
                 '復元できませんでした',
-                error instanceof Error ? error.message : 'ファイルを確認してください。'
+                error instanceof Error ? error.message : 'ファイルを確認してください。',
               );
             } finally {
               setBackupBusy(false);
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -218,7 +245,7 @@ export default function SettingsScreen() {
             await useAppStore.getState().bootstrap();
           },
         },
-      ]
+      ],
     );
   }
 
@@ -308,11 +335,15 @@ export default function SettingsScreen() {
             profile.targetsOverridden
               ? '手動で設定した値です。プロフィールを変えても自動では変わりません。'
               : 'プロフィールから自動計算しています。'
-          }>
+          }
+        >
           <NumberInput
             value={String(profile.targetKcal)}
             onChangeText={(text) =>
-              applyProfile({ targetKcal: Number(text) || 0, targetsOverridden: true })
+              applyProfile({
+                targetKcal: Number(text) || 0,
+                targetsOverridden: true,
+              })
             }
             unit="kcal"
           />
@@ -324,7 +355,10 @@ export default function SettingsScreen() {
               <NumberInput
                 value={String(profile.targetProteinG)}
                 onChangeText={(text) =>
-                  applyProfile({ targetProteinG: Number(text) || 0, targetsOverridden: true })
+                  applyProfile({
+                    targetProteinG: Number(text) || 0,
+                    targetsOverridden: true,
+                  })
                 }
                 unit="g"
               />
@@ -335,7 +369,10 @@ export default function SettingsScreen() {
               <NumberInput
                 value={String(profile.targetFatG)}
                 onChangeText={(text) =>
-                  applyProfile({ targetFatG: Number(text) || 0, targetsOverridden: true })
+                  applyProfile({
+                    targetFatG: Number(text) || 0,
+                    targetsOverridden: true,
+                  })
                 }
                 unit="g"
               />
@@ -346,7 +383,10 @@ export default function SettingsScreen() {
               <NumberInput
                 value={String(profile.targetCarbG)}
                 onChangeText={(text) =>
-                  applyProfile({ targetCarbG: Number(text) || 0, targetsOverridden: true })
+                  applyProfile({
+                    targetCarbG: Number(text) || 0,
+                    targetsOverridden: true,
+                  })
                 }
                 unit="g"
               />
@@ -355,7 +395,7 @@ export default function SettingsScreen() {
         </View>
 
         {profile.targetsOverridden && (
-          <Button title="自動計算に戻す" variant="secondary" onPress={recalcTargets} />
+          <Button title="自動計算に戻す" variant="secondary" onPress={() => void recalcTargets()} />
         )}
       </Card>
 
@@ -366,7 +406,10 @@ export default function SettingsScreen() {
           この時刻より前の記録は前日として集計します。深夜の間食が翌日に計上されるのを防げます。
         </Text>
         <SegmentedControl<number>
-          options={[0, 3, 4, 5].map((hour) => ({ value: hour, label: `${hour}時` }))}
+          options={[0, 3, 4, 5].map((hour) => ({
+            value: hour,
+            label: `${hour}時`,
+          }))}
           value={settings.dayStartHour}
           onChange={(value) => updateSettings({ dayStartHour: value })}
         />
@@ -394,7 +437,10 @@ export default function SettingsScreen() {
           <>
             <Field label="調整期間" hint="短いほど反応が速く、きつめの調整になります">
               <SegmentedControl<number>
-                options={[3, 5, 7, 14].map((days) => ({ value: days, label: `${days}日` }))}
+                options={[3, 5, 7, 14].map((days) => ({
+                  value: days,
+                  label: `${days}日`,
+                }))}
                 value={settings.adjustmentDays}
                 onChange={(value) => updateSettings({ adjustmentDays: value })}
               />
@@ -439,7 +485,8 @@ export default function SettingsScreen() {
 
         <Field
           label="どちらの値を使うか"
-          hint="スマートウォッチのデータがない日は、自動で推定値に切り替わります">
+          hint="スマートウォッチのデータがない日は、自動で推定値に切り替わります"
+        >
           <SegmentedControl<BurnSource>
             options={[
               { value: 'estimate', label: '推定値' },
@@ -518,10 +565,7 @@ export default function SettingsScreen() {
       {/* ── 食材・商品・料理 ── */}
       <Card>
         <CardTitle>食材・商品・料理</CardTitle>
-        <PressableRow
-          label="マイ食品・料理を管理"
-          onPress={() => router.push('/library')}
-        />
+        <PressableRow label="マイ食品・料理を管理" onPress={() => router.push('/library')} />
       </Card>
 
       {/* ── バックアップ ── */}
@@ -584,9 +628,21 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   description: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
-  preview: { backgroundColor: colors.primaryLight, borderRadius: 10, padding: spacing.md },
-  previewText: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '600' },
-  warningBox: { backgroundColor: '#FDF0E6', borderRadius: 10, padding: spacing.md },
+  preview: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
+    padding: spacing.md,
+  },
+  previewText: {
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
+  warningBox: {
+    backgroundColor: '#FDF0E6',
+    borderRadius: 10,
+    padding: spacing.md,
+  },
   warningText: { fontSize: fontSize.sm, color: colors.textSub, lineHeight: 20 },
   source: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 16 },
   macroRow: { flexDirection: 'row', gap: spacing.sm },

@@ -5,7 +5,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenHeader } from '@/components/ui/header';
 import { Card, CardTitle, Divider, ProgressBar, Row, Screen } from '@/components/ui/layout';
-import { getActivityKcal, getHealthDaily, type HealthDaily } from '@/db/repo/activities';
+import {
+  getActivityKcal,
+  getHealthDaily,
+  listDailyActivityKcal,
+  type HealthDaily,
+} from '@/db/repo/activities';
 import { getDailyTotals, listDailyTotals, type DailyTotals } from '@/db/repo/meals';
 import { getWeight } from '@/db/repo/weights';
 import { useTodayKey } from '@/hooks/use-today';
@@ -39,19 +44,27 @@ export default function HomeScreen() {
       async function load() {
         // 食べ過ぎ調整は今日より前の記録だけを見る
         const historyFrom = addDays(day, -settings.adjustmentDays);
-        const [dailyTotals, kcal, healthRow, weightRow, history] = await Promise.all([
-          getDailyTotals(day),
-          getActivityKcal(day),
-          getHealthDaily(day),
-          getWeight(day),
-          listDailyTotals(historyFrom, addDays(day, -1)),
-        ]);
+        const [dailyTotals, kcal, healthRow, weightRow, history, historyExercise] =
+          await Promise.all([
+            getDailyTotals(day),
+            getActivityKcal(day),
+            getHealthDaily(day),
+            getWeight(day),
+            listDailyTotals(historyFrom, addDays(day, -1)),
+            listDailyActivityKcal(historyFrom, addDays(day, -1)),
+          ]);
         if (cancelled) return;
         setTotals(dailyTotals);
         setExerciseKcal(kcal);
         setHealth(healthRow);
         setTodayWeight(weightRow?.weightKg ?? null);
         setBodyFat(weightRow?.bodyFatPct ?? null);
+        // 過去の日も、当時その日の画面に出ていた目標（＝運動ぶんを上乗せした値）と比べる
+        const exerciseByDate = new Map(historyExercise.map((row) => [row.date, row.kcal]));
+        const bonusSettings = {
+          addExerciseToTarget: settings.addExerciseToTarget,
+          exerciseAddRatio: settings.exerciseAddRatio,
+        };
         setAdjustment(
           computeAdjustment({
             targetKcal: profileTargetKcal,
@@ -60,6 +73,7 @@ export default function HomeScreen() {
               date: row.date,
               intakeKcal: row.kcal,
               recorded: true,
+              bonusKcal: exerciseBonus(exerciseByDate.get(row.date) ?? 0, bonusSettings),
             })),
             settings: {
               enabled: settings.adjustmentEnabled,
@@ -67,7 +81,7 @@ export default function HomeScreen() {
               capPct: settings.adjustmentCapPct,
               distribution: settings.adjustmentDistribution,
             },
-          })
+          }),
         );
       }
       load().catch((error) => console.error('ホームの読み込みに失敗しました', error));
@@ -77,11 +91,13 @@ export default function HomeScreen() {
     }, [
       day,
       profileTargetKcal,
+      settings.addExerciseToTarget,
+      settings.exerciseAddRatio,
       settings.adjustmentEnabled,
       settings.adjustmentDays,
       settings.adjustmentCapPct,
       settings.adjustmentDistribution,
-    ])
+    ]),
   );
 
   if (!profile) return null;
@@ -99,9 +115,7 @@ export default function HomeScreen() {
       })
     : null;
 
-  const burn = estimate
-    ? resolveBurn(settings.burnSource, estimate, health)
-    : null;
+  const burn = estimate ? resolveBurn(settings.burnSource, estimate, health) : null;
 
   // 設定で「運動した分を目標に加算する」をオンにしている場合だけ上乗せする
   const bonusKcal = exerciseBonus(exerciseKcal, settings);
@@ -178,8 +192,11 @@ export default function HomeScreen() {
       <Card>
         <CardTitle
           right={
-            burn?.fellBack ? <Text style={styles.fallback}>ウォッチ未取得のため推定値</Text> : undefined
-          }>
+            burn?.fellBack ? (
+              <Text style={styles.fallback}>ウォッチ未取得のため推定値</Text>
+            ) : undefined
+          }
+        >
           消費カロリー
         </CardTitle>
         <View style={styles.burnRow}>
@@ -246,9 +263,7 @@ export default function HomeScreen() {
               )}
             </View>
           </View>
-          {todayWeight == null && (
-            <Text style={styles.weightHint}>今日はまだ記録していません</Text>
-          )}
+          {todayWeight == null && <Text style={styles.weightHint}>今日はまだ記録していません</Text>}
         </Card>
       </Pressable>
 
@@ -265,10 +280,13 @@ export default function HomeScreen() {
             },
           })
         }
-        style={styles.suggest}>
+        style={styles.suggest}
+      >
         <Text style={styles.suggestTitle}>今日あと何を食べればいい？</Text>
         <View style={styles.suggestRow}>
-          <Text style={styles.suggestKcal}>{Math.round(Math.max(0, remaining.kcal)).toLocaleString()}</Text>
+          <Text style={styles.suggestKcal}>
+            {Math.round(Math.max(0, remaining.kcal)).toLocaleString()}
+          </Text>
           <Text style={styles.suggestUnit}>kcal</Text>
         </View>
         <View style={styles.suggestMacros}>
@@ -290,7 +308,8 @@ export default function HomeScreen() {
       {/* 記録への導線 */}
       <Pressable
         onPress={() => router.push({ pathname: '/meal/new', params: { date: day } })}
-        style={({ pressed }) => [styles.record, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.record, pressed && styles.pressed]}
+      >
         <Ionicons name="add-circle" size={22} color={colors.textOnPrimary} />
         <Text style={styles.recordText}>食事を記録する</Text>
       </Pressable>
@@ -336,20 +355,54 @@ function MacroBar({
 
 const styles = StyleSheet.create({
   kcalRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
-  kcalValue: { fontSize: fontSize.display, fontWeight: '700', color: colors.text },
+  kcalValue: {
+    fontSize: fontSize.display,
+    fontWeight: '700',
+    color: colors.text,
+  },
   kcalTarget: { fontSize: fontSize.md, color: colors.textSub },
-  kcalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  kcalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   adjustNotes: { flexDirection: 'row', gap: spacing.md },
   bonus: { fontSize: fontSize.xs, color: colors.primary, fontWeight: '600' },
-  percent: { fontSize: fontSize.xs, color: colors.textFaint, textAlign: 'right' },
+  percent: {
+    fontSize: fontSize.xs,
+    color: colors.textFaint,
+    textAlign: 'right',
+  },
 
   macro: { gap: spacing.xs },
-  macroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  macroLabelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  macroMark: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  macroMarkText: { color: colors.textOnPrimary, fontSize: 10, fontWeight: '700' },
+  macroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  macroLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  macroMark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  macroMarkText: {
+    color: colors.textOnPrimary,
+    fontSize: 10,
+    fontWeight: '700',
+  },
   macroLabel: { fontSize: fontSize.sm, color: colors.text },
-  macroValue: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600' },
+  macroValue: {
+    fontSize: fontSize.sm,
+    color: colors.textSub,
+    fontWeight: '600',
+  },
 
   burnRow: { flexDirection: 'row', gap: spacing.md },
   burnBox: {
@@ -363,11 +416,28 @@ const styles = StyleSheet.create({
   burnValue: { fontSize: fontSize.xl, fontWeight: '700', color: colors.text },
   burnUnit: { fontSize: fontSize.xs, color: colors.textFaint },
   fallback: { fontSize: fontSize.xs, color: colors.warning },
-  balance: { fontSize: fontSize.sm, color: colors.textSub, textAlign: 'right', fontWeight: '600' },
+  balance: {
+    fontSize: fontSize.sm,
+    color: colors.textSub,
+    textAlign: 'right',
+    fontWeight: '600',
+  },
 
-  weightRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  weightValue: { fontSize: fontSize.xxl, fontWeight: '700', color: colors.text },
-  weightUnit: { fontSize: fontSize.md, fontWeight: '600', color: colors.textSub },
+  weightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weightValue: {
+    fontSize: fontSize.xxl,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  weightUnit: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.textSub,
+  },
   weightSide: { flexDirection: 'row', gap: spacing.lg },
   sideBox: { alignItems: 'flex-end' },
   sideLabel: { fontSize: fontSize.xs, color: colors.textFaint },
@@ -380,15 +450,40 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.xs,
   },
-  suggestTitle: { fontSize: fontSize.md, fontWeight: '700', color: colors.primaryDark },
+  suggestTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
   suggestRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
-  suggestKcal: { fontSize: fontSize.display, fontWeight: '700', color: colors.primaryDark },
+  suggestKcal: {
+    fontSize: fontSize.display,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
   suggestUnit: { fontSize: fontSize.md, color: colors.primaryDark },
   suggestMacros: { flexDirection: 'row', gap: spacing.lg },
-  suggestMacro: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '600' },
-  suggestOver: { fontSize: fontSize.sm, color: colors.danger, fontWeight: '600' },
-  suggestAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
-  suggestActionText: { fontSize: fontSize.sm, color: colors.primaryDark, fontWeight: '700' },
+  suggestMacro: {
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
+  suggestOver: {
+    fontSize: fontSize.sm,
+    color: colors.danger,
+    fontWeight: '600',
+  },
+  suggestAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 2,
+  },
+  suggestActionText: {
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
 
   record: {
     flexDirection: 'row',
@@ -400,5 +495,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   pressed: { opacity: 0.8 },
-  recordText: { fontSize: fontSize.md, fontWeight: '700', color: colors.textOnPrimary },
+  recordText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.textOnPrimary,
+  },
 });

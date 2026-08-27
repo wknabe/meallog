@@ -46,7 +46,8 @@ export default function DishEditScreen() {
   const servings = servingsValid ? servingsValue : 1;
   const nutrition = draftDishNutrition(draft.ingredients, servings);
   const hasGrams = draft.ingredients.every((ingredient) => toGramsValue(ingredient.grams) > 0);
-  const canSave = draft.name.trim() !== '' && draft.ingredients.length > 0 && servingsValid && hasGrams;
+  const canSave =
+    draft.name.trim() !== '' && draft.ingredients.length > 0 && servingsValid && hasGrams;
 
   async function handleSave() {
     if (saving || !canSave) return;
@@ -61,9 +62,10 @@ export default function DishEditScreen() {
         tastes: draft.tastes,
         servings,
         // 「.」だけ入力された場合などに NaN を保存しないようにする
-        cookMinutes: Number.isFinite(Number(draft.cookMinutes)) && draft.cookMinutes.trim() !== ''
-          ? Number(draft.cookMinutes)
-          : null,
+        cookMinutes:
+          Number.isFinite(Number(draft.cookMinutes)) && draft.cookMinutes.trim() !== ''
+            ? Number(draft.cookMinutes)
+            : null,
         steps: draft.steps.trim() === '' ? null : draft.steps.trim(),
         ingredients: draft.ingredients.map((ingredient) => ({
           foodId: ingredient.foodId,
@@ -128,10 +130,9 @@ export default function DishEditScreen() {
             <Field
               label="何人前ぶんの分量か"
               hint={
-                servingsValid
-                  ? '材料の合計がこの人数分になります'
-                  : '1以上の数値を入力してください'
-              }>
+                servingsValid ? '材料の合計がこの人数分になります' : '1以上の数値を入力してください'
+              }
+            >
               <NumberInput
                 value={draft.servings}
                 onChangeText={(value) => draft.patch({ servings: value })}
@@ -247,7 +248,8 @@ export default function DishEditScreen() {
                 <Pressable
                   onPress={() => draft.removeIngredient(ingredient.key)}
                   hitSlop={8}
-                  style={styles.remove}>
+                  style={styles.remove}
+                >
                   <Ionicons name="close-circle" size={20} color={colors.textFaint} />
                 </Pressable>
               </View>
@@ -299,7 +301,7 @@ export default function DishEditScreen() {
 
       <Button
         title={saving ? '保存中…' : draft.dishId != null ? '更新する' : '保存する'}
-        onPress={handleSave}
+        onPress={() => void handleSave()}
         disabled={saving || !canSave}
       />
       {!canSave && draft.ingredients.length > 0 && !hasGrams && (
@@ -323,13 +325,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: spacing.md,
   },
-  ingredient: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  ingredient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   ingredientName: { fontSize: fontSize.sm, color: colors.text },
   seasoningRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 2 },
   seasoningLabel: { fontSize: fontSize.xs, color: colors.textFaint },
   gramsBox: { width: 100 },
   remove: { padding: 2 },
-  addRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   addText: { fontSize: fontSize.md, color: colors.primary, fontWeight: '600' },
   nutritionRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
   kcal: { fontSize: fontSize.xxl, fontWeight: '700', color: colors.text },

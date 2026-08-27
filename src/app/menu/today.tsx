@@ -39,7 +39,7 @@ export default function TodayPlanScreen() {
   useFocusEffect(
     useCallback(() => {
       void reload();
-    }, [reload])
+    }, [reload]),
   );
 
   const totals = planTotals(entries);
@@ -51,8 +51,18 @@ export default function TodayPlanScreen() {
   }
 
   async function toggleCooked(entry: PlanEntryRecord, cooked: boolean) {
-    await markCooked(entry.id, cooked);
-    await reload();
+    // 連打すると在庫が二重に減る余地があるため、処理中は受け付けない
+    if (busy) return;
+    setBusy(true);
+    try {
+      await markCooked(entry.id, cooked);
+      await reload();
+    } catch (error) {
+      console.error('献立の更新に失敗しました', error);
+      Alert.alert('更新できませんでした', 'もう一度お試しください。');
+    } finally {
+      setBusy(false);
+    }
   }
 
   /** 献立どおりに食べたものを、そのまま食事記録にする */
@@ -90,9 +100,16 @@ export default function TodayPlanScreen() {
       {
         text: '削除する',
         style: 'destructive',
-        onPress: async () => {
-          await deletePlanForDate(date);
-          await reload();
+        onPress: () => {
+          void (async () => {
+            try {
+              await deletePlanForDate(date);
+              await reload();
+            } catch (error) {
+              console.error('献立の削除に失敗しました', error);
+              Alert.alert('削除できませんでした', 'もう一度お試しください。');
+            }
+          })();
         },
       },
     ]);
@@ -117,7 +134,8 @@ export default function TodayPlanScreen() {
     <Screen>
       <Card>
         <CardTitle
-          right={<Text style={styles.total}>{Math.round(totals.kcal).toLocaleString()} kcal</Text>}>
+          right={<Text style={styles.total}>{Math.round(totals.kcal).toLocaleString()} kcal</Text>}
+        >
           {formatDayLabel(date)}
         </CardTitle>
         {profile != null && (
@@ -154,6 +172,7 @@ export default function TodayPlanScreen() {
                   <Switch
                     value={entry.cooked}
                     onValueChange={(value) => void toggleCooked(entry, value)}
+                    disabled={busy}
                     trackColor={{ true: colors.primary }}
                   />
                 </View>
@@ -161,10 +180,7 @@ export default function TodayPlanScreen() {
             </View>
           ))}
 
-          <Pressable
-            onPress={() => void recordMeal(slot)}
-            disabled={busy}
-            style={styles.recordRow}>
+          <Pressable onPress={() => void recordMeal(slot)} disabled={busy} style={styles.recordRow}>
             <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
             <Text style={styles.recordText}>この内容で食事を記録する</Text>
           </Pressable>
@@ -195,12 +211,22 @@ const styles = StyleSheet.create({
   total: { fontSize: fontSize.sm, color: colors.textSub, fontWeight: '600' },
   compare: { fontSize: fontSize.sm, color: colors.textSub },
   macros: { fontSize: fontSize.xs, color: colors.textFaint },
-  entry: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  entry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   dishName: { fontSize: fontSize.md, color: colors.text },
   dishSub: { fontSize: fontSize.xs, color: colors.textFaint, marginTop: 2 },
   cooked: { alignItems: 'center', gap: 2 },
   cookedLabel: { fontSize: fontSize.xs, color: colors.textFaint },
-  recordRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xs },
+  recordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
   recordText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: '600' },
   note: { fontSize: fontSize.xs, color: colors.textFaint, lineHeight: 18 },
 });

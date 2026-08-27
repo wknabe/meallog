@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Field, NumberInput } from '@/components/ui/controls';
@@ -56,6 +56,9 @@ export default function PantryAddScreen() {
     try {
       await addToPantry(selected.id, grams, expiresOn);
       router.back();
+    } catch (error) {
+      console.error('冷蔵庫への追加に失敗しました', error);
+      Alert.alert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -81,12 +84,11 @@ export default function PantryAddScreen() {
                         setUnitId(unit.id);
                         setQuantityText('1');
                       }}
-                      style={[styles.unitChip, unitId === unit.id && styles.unitChipSelected]}>
+                      style={[styles.unitChip, unitId === unit.id && styles.unitChipSelected]}
+                    >
                       <Text
-                        style={[
-                          styles.unitText,
-                          unitId === unit.id && styles.unitTextSelected,
-                        ]}>
+                        style={[styles.unitText, unitId === unit.id && styles.unitTextSelected]}
+                      >
                         {unit.name}
                       </Text>
                     </Pressable>
@@ -96,7 +98,8 @@ export default function PantryAddScreen() {
                       setUnitId(null);
                       setQuantityText(String(Math.round(grams)));
                     }}
-                    style={[styles.unitChip, unitId === null && styles.unitChipSelected]}>
+                    style={[styles.unitChip, unitId === null && styles.unitChipSelected]}
+                  >
                     <Text style={[styles.unitText, unitId === null && styles.unitTextSelected]}>
                       g
                     </Text>
@@ -114,16 +117,12 @@ export default function PantryAddScreen() {
             </Field>
 
             <Field label="賞味期限（任意）" hint="期限が近い食材を優先して使う献立を提案します">
-              <DateField
-                value={expiresOn}
-                onChange={setExpiresOn}
-                placeholder="設定しない"
-              />
+              <DateField value={expiresOn} onChange={setExpiresOn} placeholder="設定しない" />
             </Field>
 
             <Button
               title={saving ? '追加中…' : '冷蔵庫に追加'}
-              onPress={handleSave}
+              onPress={() => void handleSave()}
               disabled={saving || grams <= 0}
             />
             <Button title="別の食材を選ぶ" variant="ghost" onPress={() => setSelected(null)} />
@@ -163,7 +162,8 @@ export default function PantryAddScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => void select(item)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
             <View style={styles.flex}>
               <Text style={styles.name} numberOfLines={2}>
                 {item.name}

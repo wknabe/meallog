@@ -31,15 +31,39 @@ export default function PantryScreen() {
   useFocusEffect(
     useCallback(() => {
       void reload();
-    }, [reload])
+    }, [reload]),
   );
 
   async function commitGrams(item: PantryItem) {
-    const value = Number(gramsText[item.id]);
-    if (!Number.isFinite(value)) {
+    const text = gramsText[item.id] ?? '';
+    const value = Number(text);
+
+    // 空欄や不正な入力は元に戻す。Number('') は0になり、黙って削除されてしまうため
+    if (text.trim() === '' || !Number.isFinite(value)) {
       setGramsText((previous) => ({ ...previous, [item.id]: String(item.grams) }));
       return;
     }
+
+    if (value <= 0) {
+      Alert.alert('この食材を削除しますか？', `${item.foodName} を0gにすると一覧から消えます。`, [
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+          onPress: () =>
+            setGramsText((previous) => ({ ...previous, [item.id]: String(item.grams) })),
+        },
+        {
+          text: '削除する',
+          style: 'destructive',
+          onPress: async () => {
+            await removePantryItem(item.id);
+            await reload();
+          },
+        },
+      ]);
+      return;
+    }
+
     await updatePantryItem(item.id, { grams: value, expiresOn: item.expiresOn });
     await reload();
   }
@@ -50,9 +74,16 @@ export default function PantryScreen() {
       {
         text: '削除する',
         style: 'destructive',
-        onPress: async () => {
-          await removePantryItem(item.id);
-          await reload();
+        onPress: () => {
+          void (async () => {
+            try {
+              await removePantryItem(item.id);
+              await reload();
+            } catch (error) {
+              console.error('食材の削除に失敗しました', error);
+              Alert.alert('削除できませんでした', 'もう一度お試しください。');
+            }
+          })();
         },
       },
     ]);
@@ -108,7 +139,10 @@ export default function PantryScreen() {
                         <DateField
                           value={item.expiresOn}
                           onChange={async (value) => {
-                            await updatePantryItem(item.id, { grams: item.grams, expiresOn: value });
+                            await updatePantryItem(item.id, {
+                              grams: item.grams,
+                              expiresOn: value,
+                            });
                             await reload();
                           }}
                           placeholder="賞味期限を設定"
@@ -127,7 +161,11 @@ export default function PantryScreen() {
                       />
                     </View>
 
-                    <Pressable onPress={() => confirmRemove(item)} hitSlop={8} style={styles.remove}>
+                    <Pressable
+                      onPress={() => confirmRemove(item)}
+                      hitSlop={8}
+                      style={styles.remove}
+                    >
                       <Ionicons name="close-circle" size={20} color={colors.textFaint} />
                     </Pressable>
                   </View>
@@ -138,9 +176,7 @@ export default function PantryScreen() {
 
           <Button
             title="この食材で献立を作る"
-            onPress={() =>
-              router.push({ pathname: '/menu/generate', params: { usePantry: '1' } })
-            }
+            onPress={() => router.push({ pathname: '/menu/generate', params: { usePantry: '1' } })}
           />
           <Text style={styles.note}>
             在庫は自動では減りません。献立に「作った」を付けたときと、この画面での編集で減ります。
@@ -154,7 +190,12 @@ export default function PantryScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   count: { fontSize: fontSize.xs, color: colors.textFaint },
-  item: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   name: { fontSize: fontSize.md, color: colors.text },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
   group: { fontSize: fontSize.xs, color: colors.textFaint },

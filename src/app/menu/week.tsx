@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/controls';
@@ -28,6 +28,8 @@ export default function WeekPlanScreen() {
   const [entries, setEntries] = useState<PlanEntryRecord[]>([]);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  // 画面を離れて戻ると state は初期化されるため、走行中かどうかは ref で持つ
+  const runningRef = useRef(false);
 
   const reload = useCallback(async () => {
     setEntries(await listPlanForRange(from, to));
@@ -36,7 +38,7 @@ export default function WeekPlanScreen() {
   useFocusEffect(
     useCallback(() => {
       void reload();
-    }, [reload])
+    }, [reload]),
   );
 
   const byDate = new Map<DayKey, PlanEntryRecord[]>();
@@ -49,7 +51,8 @@ export default function WeekPlanScreen() {
   const filledDays = days.filter((date) => (byDate.get(date) ?? []).length > 0).length;
 
   async function generateWeek() {
-    if (!profile || generating) return;
+    if (!profile || runningRef.current) return;
+    runningRef.current = true;
     setGenerating(true);
     setProgress(0);
     try {
@@ -73,8 +76,8 @@ export default function WeekPlanScreen() {
               slot: meal.slot,
               dishId: entry.dish.id,
               servings: entry.servings,
-            }))
-          )
+            })),
+          ),
         );
         setProgress(index + 1);
       }
@@ -83,6 +86,7 @@ export default function WeekPlanScreen() {
       console.error('1週間の献立作成に失敗しました', error);
       Alert.alert('作成できませんでした', 'もう一度お試しください。');
     } finally {
+      runningRef.current = false;
       setGenerating(false);
     }
   }
@@ -98,7 +102,7 @@ export default function WeekPlanScreen() {
       [
         { text: 'キャンセル', style: 'cancel' },
         { text: '作り直す', onPress: () => void generateWeek() },
-      ]
+      ],
     );
   }
 
@@ -130,10 +134,12 @@ export default function WeekPlanScreen() {
         return (
           <Pressable
             key={date}
-            onPress={() => router.push({ pathname: '/menu/today', params: { date } })}>
+            onPress={() => router.push({ pathname: '/menu/today', params: { date } })}
+          >
             <Card>
               <CardTitle
-                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}>
+                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+              >
                 {formatDayLabel(date)}
               </CardTitle>
 
@@ -151,7 +157,7 @@ export default function WeekPlanScreen() {
                           .join('、')}
                       />
                     </View>
-                  )
+                  ),
                 )
               )}
             </Card>

@@ -14,7 +14,15 @@
  *   ・直近に食べた料理は減点（同じものが続かないように）
  */
 import type { NutrientKey, Nutrients } from '../db/nutrients.ts';
-import type { Cuisine, DishCategory, Effort, MealSlot, MoodFilter, Taste, Volume } from './types.ts';
+import type {
+  Cuisine,
+  DishCategory,
+  Effort,
+  MealSlot,
+  MoodFilter,
+  Taste,
+  Volume,
+} from './types.ts';
 
 /** 献立に使える料理 */
 export type PlanDish = {
@@ -68,6 +76,8 @@ export type DayPlan = {
   totals: PlanTarget;
   /** なぜこの献立になったかの説明。画面に出す */
   reasons: string[];
+  /** 主食の増減では目標カロリーに届かなかったか */
+  calorieGapRemains: boolean;
 };
 
 /** 1日のカロリーを食事ごとに配分する割合 */
@@ -101,6 +111,8 @@ const SLOT_LAYOUT: Record<MealSlot, { category: DishCategory; share: number }[]>
 
 /** 主食の量を増減できる範囲。ここでカロリーの帳尻を合わせる */
 const STAPLE_SERVING_RANGE = { min: 0.5, max: 2 };
+/** 主食1品あたりのカロリー上限。「大盛りごはん2人前」のような提案を防ぐ */
+const MAX_STAPLE_KCAL_PER_DISH = 600;
 
 /** 気分タグが一致しないときの減点 */
 const MOOD_PENALTY = 3;
@@ -120,11 +132,7 @@ function matchesMood(dish: PlanDish, mood: MoodFilter): boolean {
  * 気分に合わない料理も候補から外さず減点にとどめる。
  * 完全に除外すると、条件を絞ったときに献立が組めなくなるため。
  */
-export function scoreDish(
-  dish: PlanDish,
-  context: PlanContext,
-  budgetKcal: number
-): number {
+export function scoreDish(dish: PlanDish, context: PlanContext, budgetKcal: number): number {
   // カロリーの近さ。割り当てを超えるほうを重く見る
   const diff = (dish.perServing.kcal - budgetKcal) / Math.max(budgetKcal, 1);
   let score = diff > 0 ? diff * 1.5 : -diff;
@@ -146,7 +154,7 @@ export function scoreDish(
 
   // 賞味期限が近い材料は優先して使い切りたい
   const expiringHits = dish.ingredientFoodIds.filter((id) =>
-    context.expiringFoodIds.has(id)
+    context.expiringFoodIds.has(id),
   ).length;
   score -= expiringHits * 0.8;
 
@@ -163,7 +171,7 @@ function pickForSlot(
   context: PlanContext,
   budgetKcal: number,
   used: Set<number>,
-  variant: number
+  variant: number,
 ): PlanDish | null {
   const pool = candidates
     .filter((dish) => dish.category === category && !used.has(dish.id))
@@ -204,21 +212,15 @@ export function generateDayPlan(candidates: PlanDish[], context: PlanContext): D
   const used = new Set<number>();
   const meals: PlanMeal[] = [];
 
-  for (const [mealIndex, { slot, share }] of MEAL_SHARES.entries()) {
+  for (const { slot, share } of MEAL_SHARES) {
     const mealKcal = context.target.kcal * share;
     const entries: PlanEntry[] = [];
 
-    for (const [slotIndex, layout] of SLOT_LAYOUT[slot].entries()) {
+    for (const layout of SLOT_LAYOUT[slot]) {
       const budget = mealKcal * layout.share;
-      // 枠ごとに variant をずらし、「別の献立」で全部が同時に変わるようにする
-      const dish = pickForSlot(
-        candidates,
-        layout.category,
-        context,
-        budget,
-        used,
-        variant + mealIndex + slotIndex
-      );
+      // variant=0 ならどの枠も最良の候補を選ぶ。
+      // 献立の多様性は used（1日に同じ料理を使わない）と直近の重複減点で確保している
+      const dish = pickForSlot(candidates, layout.category, context, budget, used, variant);
       if (!dish) continue;
       used.add(dish.id);
       entries.push({ dish, servings: 1 });
@@ -228,11 +230,22 @@ export function generateDayPlan(candidates: PlanDish[], context: PlanContext): D
   }
 
   const adjusted = fitCalories(meals, context.target.kcal);
-  return {
-    meals: adjusted,
-    totals: sumPlan(adjusted),
-    reasons: buildReasons(adjusted, context),
-  };
+  const totals = sumPlan(adjusted);
+  // 主食の量では埋められない差が残ったかどうか。10%を超えたら伝える
+  const calorieGapRemains =
+    context.target.kcal > 0 &&
+    Math.abs(totals.kcal - context.target.kcal) / context.target.kcal > 0.1;
+
+  const reasons = buildReasons(adjusted, context);
+  if (calorieGapRemains) {
+    reasons.push(
+      totals.kcal < context.target.kcal
+        ? '主食を増やしても目標カロリーに届きませんでした。品数を足すか、別の献立にしてください'
+        : '主食を減らしても目標カロリーを超えています。軽めの料理に替えるか、別の献立にしてください',
+    );
+  }
+
+  return { meals: adjusted, totals, reasons, calorieGapRemains };
 }
 
 /**
@@ -242,29 +255,48 @@ export function generateDayPlan(candidates: PlanDish[], context: PlanContext): D
  */
 export function fitCalories(meals: PlanMeal[], targetKcal: number): PlanMeal[] {
   const staples = meals.flatMap((meal) =>
-    meal.entries.filter((entry) => entry.dish.category === 'staple')
+    meal.entries.filter((entry) => entry.dish.category === 'staple'),
   );
   if (staples.length === 0) return meals;
 
   const current = sumPlan(meals).kcal;
-  const stapleKcal = staples.reduce((sum, entry) => sum + entry.dish.perServing.kcal, 0);
-  if (stapleKcal <= 0) return meals;
+  // 1人前あたりで見る。現在の servings を掛けて数えると、
+  // 調整済みの献立に再度かけたときに値が振動する
+  const stapleKcalPerServing = staples.reduce((sum, entry) => sum + entry.dish.perServing.kcal, 0);
+  if (stapleKcalPerServing <= 0) return meals;
+
+  const currentStapleKcal = staples.reduce(
+    (sum, entry) => sum + entry.dish.perServing.kcal * entry.servings,
+    0,
+  );
 
   // 主食以外は固定なので、主食が担うべきカロリーから倍率を求める
-  const fixedKcal = current - stapleKcal;
+  const fixedKcal = current - currentStapleKcal;
   const desiredStapleKcal = targetKcal - fixedKcal;
-  const ratio = Math.max(
-    STAPLE_SERVING_RANGE.min,
-    Math.min(STAPLE_SERVING_RANGE.max, desiredStapleKcal / stapleKcal)
+  const ratio = desiredStapleKcal / stapleKcalPerServing;
+
+  // 人数分の範囲と、1品あたりのカロリー上限の両方で頭打ちにする。
+  // 「大盛りごはん2人前」のような非現実的な提案を避けるため
+  const maxByKcal = Math.min(
+    ...staples.map((entry) =>
+      entry.dish.perServing.kcal > 0
+        ? MAX_STAPLE_KCAL_PER_DISH / entry.dish.perServing.kcal
+        : STAPLE_SERVING_RANGE.max,
+    ),
+  );
+  const upperBound = Math.min(
+    STAPLE_SERVING_RANGE.max,
+    Math.max(maxByKcal, STAPLE_SERVING_RANGE.min),
   );
 
   // 0.1人前単位に丸める。細かすぎる指定は量れない
-  const servings = Math.round(ratio * 10) / 10;
+  const servings =
+    Math.round(Math.max(STAPLE_SERVING_RANGE.min, Math.min(upperBound, ratio)) * 10) / 10;
 
   return meals.map((meal) => ({
     slot: meal.slot,
     entries: meal.entries.map((entry) =>
-      entry.dish.category === 'staple' ? { ...entry, servings } : entry
+      entry.dish.category === 'staple' ? { ...entry, servings } : entry,
     ),
   }));
 }
@@ -281,19 +313,19 @@ function buildReasons(meals: PlanMeal[], context: PlanContext): string[] {
     .map(([key]) => key as NutrientKey);
   if (deficitKeys.length > 0) {
     reasons.push(
-      `直近で不足している${deficitKeys.map((key) => DEFICIT_LABELS[key] ?? key).join('・')}を多く含む料理を選びました`
+      `直近で不足している${deficitKeys.map((key) => DEFICIT_LABELS[key] ?? key).join('・')}を多く含む料理を選びました`,
     );
   }
 
   const pantryUsed = dishes.filter((dish) =>
-    dish.ingredientFoodIds.some((id) => context.pantryFoodIds.has(id))
+    dish.ingredientFoodIds.some((id) => context.pantryFoodIds.has(id)),
   ).length;
   if (pantryUsed > 0) {
     reasons.push(`冷蔵庫にある食材を使う料理を${pantryUsed}品入れました`);
   }
 
   const expiringUsed = dishes.filter((dish) =>
-    dish.ingredientFoodIds.some((id) => context.expiringFoodIds.has(id))
+    dish.ingredientFoodIds.some((id) => context.expiringFoodIds.has(id)),
   ).length;
   if (expiringUsed > 0) {
     reasons.push(`賞味期限が近い食材を優先して使っています`);
@@ -334,7 +366,7 @@ const DEFICIT_LABELS: Partial<Record<NutrientKey, string>> = {
  */
 export function calcDeficits(
   averagePerDay: Partial<Nutrients>,
-  reference: Partial<Record<NutrientKey, number>>
+  reference: Partial<Record<NutrientKey, number>>,
 ): Partial<Record<NutrientKey, number>> {
   const deficits: Partial<Record<NutrientKey, number>> = {};
   for (const [key, target] of Object.entries(reference)) {

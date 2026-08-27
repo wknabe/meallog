@@ -70,7 +70,9 @@ export default function SuggestScreen() {
     vegetable: [],
   });
   const [dishes, setDishes] = useState<{ dish: Dish; kcal: number }[]>([]);
-  const [products, setProducts] = useState<{ id: number; name: string; kcal: number }[]>([]);
+  const [products, setProducts] = useState<
+    { id: number; name: string; kcal: number; grams: number }[]
+  >([]);
 
   // 食材の組み合わせ用に、日常語で呼べる食品だけを集めておく
   useEffect(() => {
@@ -102,12 +104,13 @@ export default function SuggestScreen() {
       return buildCombo(remaining, {
         protein: proteinPool[index % proteinPool.length],
         staple: staplePool.length > 0 ? staplePool[index % staplePool.length] : undefined,
-        vegetable: vegetablePool.length > 0 ? vegetablePool[index % vegetablePool.length] : undefined,
+        vegetable:
+          vegetablePool.length > 0 ? vegetablePool[index % vegetablePool.length] : undefined,
       });
     },
     // remaining はパラメータ由来で毎回同じ値になる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pools, remaining.kcal, remaining.proteinG, remaining.fatG, remaining.carbG]
+    [pools, remaining.kcal, remaining.proteinG, remaining.fatG, remaining.carbG],
   );
 
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function SuggestScreen() {
         const ranked = rankByRemaining(
           list.map((dish) => ({ item: dish, nutrients: dishNutrition(dish, 1).nutrients })),
           remaining,
-          12
+          12,
         );
         setDishes(ranked.map((entry) => ({ dish: entry.item, kcal: entry.nutrients.kcal })));
       })
@@ -137,7 +140,15 @@ export default function SuggestScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, cuisine, effort, remaining.kcal, remaining.proteinG, remaining.fatG, remaining.carbG]);
+  }, [
+    source,
+    cuisine,
+    effort,
+    remaining.kcal,
+    remaining.proteinG,
+    remaining.fatG,
+    remaining.carbG,
+  ]);
 
   // 登録済み商品の候補
   useEffect(() => {
@@ -156,7 +167,7 @@ export default function SuggestScreen() {
             item: { id: product.id, name: product.name, grams },
             nutrients: nutrientsForFood(
               { id: food.id, name: food.name, per100g: food.per100g },
-              grams
+              grams,
             ),
           });
         }
@@ -167,7 +178,9 @@ export default function SuggestScreen() {
             id: entry.item.id,
             name: entry.item.name,
             kcal: entry.nutrients.kcal,
-          }))
+            // 表示に使った量と同じ量で記録する
+            grams: entry.item.grams,
+          })),
         );
       })
       .catch((error) => console.error('商品の読み込みに失敗しました', error));
@@ -222,6 +235,9 @@ export default function SuggestScreen() {
       });
       router.dismissAll();
       router.replace('/meals');
+    } catch (error) {
+      console.error('食事の追加に失敗しました', error);
+      Alert.alert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -244,6 +260,9 @@ export default function SuggestScreen() {
       });
       router.dismissAll();
       router.replace('/meals');
+    } catch (error) {
+      console.error('食事の追加に失敗しました', error);
+      Alert.alert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -255,7 +274,8 @@ export default function SuggestScreen() {
         <Card>
           <CardTitle>今日はもう十分です</CardTitle>
           <Text style={styles.note}>
-            残りは {Math.max(0, Math.round(remaining.kcal))} kcal です。無理に食べる必要はありません。
+            残りは {Math.max(0, Math.round(remaining.kcal))} kcal
+            です。無理に食べる必要はありません。
           </Text>
         </Card>
       </Screen>
@@ -275,9 +295,7 @@ export default function SuggestScreen() {
           <Text style={[styles.macro, { color: colors.protein }]}>
             P {Math.round(remaining.proteinG)}g
           </Text>
-          <Text style={[styles.macro, { color: colors.fat }]}>
-            F {Math.round(remaining.fatG)}g
-          </Text>
+          <Text style={[styles.macro, { color: colors.fat }]}>F {Math.round(remaining.fatG)}g</Text>
           <Text style={[styles.macro, { color: colors.carb }]}>
             C {Math.round(remaining.carbG)}g
           </Text>
@@ -316,7 +334,8 @@ export default function SuggestScreen() {
                     <Text style={styles.rerollText}>別の組み合わせ</Text>
                   </View>
                 </Pressable>
-              }>
+              }
+            >
               おすすめの食事
             </CardTitle>
 
@@ -340,7 +359,7 @@ export default function SuggestScreen() {
 
             <Button
               title={saving ? '追加中…' : '食事に追加する'}
-              onPress={addCombo}
+              onPress={() => void addCombo()}
               disabled={saving}
             />
           </Card>
@@ -376,9 +395,10 @@ export default function SuggestScreen() {
             dishes.map((entry) => (
               <Pressable
                 key={entry.dish.id}
-                onPress={() => addDish(entry.dish)}
+                onPress={() => void addDish(entry.dish)}
                 disabled={saving}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              >
                 <View style={styles.flex}>
                   <Text style={styles.name}>{entry.dish.name}</Text>
                   <Text style={styles.sub}>1人前 {Math.round(entry.kcal)} kcal</Text>
@@ -397,12 +417,15 @@ export default function SuggestScreen() {
         products.map((product) => (
           <Pressable
             key={product.id}
-            onPress={() => addProduct(product.id, 100)}
+            onPress={() => void addProduct(product.id, product.grams)}
             disabled={saving}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
             <View style={styles.flex}>
               <Text style={styles.name}>{product.name}</Text>
-              <Text style={styles.sub}>{Math.round(product.kcal)} kcal</Text>
+              <Text style={styles.sub}>
+                {Math.round(product.grams)}gあたり {Math.round(product.kcal)} kcal
+              </Text>
             </View>
             <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
           </Pressable>

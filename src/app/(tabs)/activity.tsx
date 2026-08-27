@@ -62,7 +62,7 @@ export default function ActivityScreen() {
     useCallback(() => {
       void reload();
       void checkAvailability().then(setAvailability);
-    }, [reload])
+    }, [reload]),
   );
 
   /** Health Connect から今日ぶんを取り込む */
@@ -74,7 +74,7 @@ export default function ActivityScreen() {
       if (granted === 0) {
         Alert.alert(
           'データを読み取れません',
-          'Health Connect でこのアプリへのアクセスを許可してください。'
+          'Health Connect でこのアプリへのアクセスを許可してください。',
         );
         return;
       }
@@ -176,13 +176,19 @@ export default function ActivityScreen() {
               <Text style={styles.boxTitle}>推定（身体活動レベルから）</Text>
               {estimate ? (
                 <>
-                  <Row label="基礎代謝" value={`${Math.round(estimate.bmr).toLocaleString()} kcal`} />
+                  <Row
+                    label="基礎代謝"
+                    value={`${Math.round(estimate.bmr).toLocaleString()} kcal`}
+                  />
                   <Row
                     label="活動による推定消費"
                     value={`${Math.round(estimate.activity).toLocaleString()} kcal`}
                   />
                   <Divider />
-                  <Row label="推定総消費" value={`${Math.round(estimate.total).toLocaleString()} kcal`} />
+                  <Row
+                    label="推定総消費"
+                    value={`${Math.round(estimate.total).toLocaleString()} kcal`}
+                  />
                 </>
               ) : (
                 <Text style={styles.empty}>体重が未登録のため推定できません</Text>
@@ -196,7 +202,10 @@ export default function ActivityScreen() {
                   <Row label="歩数" value={`${(health.steps ?? 0).toLocaleString()} 歩`} />
                   <Row label="運動時間" value={`${Math.round(health.exerciseMin ?? 0)} 分`} />
                   <Divider />
-                  <Row label="総消費" value={`${Math.round(health.totalKcal ?? 0).toLocaleString()} kcal`} />
+                  <Row
+                    label="総消費"
+                    value={`${Math.round(health.totalKcal ?? 0).toLocaleString()} kcal`}
+                  />
                 </>
               ) : (
                 <Text style={styles.empty}>連携するとここに実測値が出ます</Text>
@@ -206,7 +215,7 @@ export default function ActivityScreen() {
                 <Button
                   title={syncing ? '取り込み中…' : 'スマートウォッチから取り込む'}
                   variant="secondary"
-                  onPress={syncHealth}
+                  onPress={() => void syncHealth()}
                   disabled={syncing}
                 />
               ) : (
@@ -259,7 +268,9 @@ function describeActivity(activity: Activity): string | undefined {
   if (activity.distanceKm != null) parts.push(`${activity.distanceKm}km`);
   if (activity.durationMin != null) parts.push(`${activity.durationMin}分`);
   if (activity.reps != null) {
-    parts.push(activity.sets != null ? `${activity.reps}回 × ${activity.sets}セット` : `${activity.reps}回`);
+    parts.push(
+      activity.sets != null ? `${activity.reps}回 × ${activity.sets}セット` : `${activity.reps}回`,
+    );
   }
   return parts.length > 0 ? parts.join(' / ') : undefined;
 }

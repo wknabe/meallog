@@ -26,6 +26,12 @@ export type DayIntake = {
   intakeKcal: number;
   /** 食事の記録が1件でもあるか。記録がない日は計算から除く */
   recorded: boolean;
+  /**
+   * その日の目標に上乗せされていた運動ぶんのカロリー。
+   * 「運動した分を目標に加算する」設定がオフなら 0（省略可）。
+   * 画面に出ていた目標と同じ基準で比べないと、運動した日が食べ過ぎ扱いになってしまう。
+   */
+  bonusKcal?: number;
 };
 
 export type AdjustmentResult = {
@@ -73,7 +79,10 @@ export function computeAdjustment(params: {
   const recorded = history.filter((day) => day.recorded).slice(-days);
   if (recorded.length === 0) return NO_ADJUSTMENT;
 
-  const surplusKcal = recorded.reduce((sum, day) => sum + (day.intakeKcal - targetKcal), 0);
+  const surplusKcal = recorded.reduce(
+    (sum, day) => sum + (day.intakeKcal - (targetKcal + (day.bonusKcal ?? 0))),
+    0,
+  );
 
   // 超過分をこれから先のN日に配る。今日ぶんの取り分を求める
   const share =

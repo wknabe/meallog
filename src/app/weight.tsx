@@ -33,8 +33,7 @@ export default function WeightScreen() {
   }, [reload]);
 
   const weightValue = Number(weight);
-  const bmi =
-    profile && weightValue > 0 ? calcBmi(weightValue, profile.heightCm) : null;
+  const bmi = profile && weightValue > 0 ? calcBmi(weightValue, profile.heightCm) : null;
 
   async function handleSave() {
     if (saving || weightValue <= 0) return;
@@ -79,7 +78,7 @@ export default function WeightScreen() {
 
         <Button
           title={saving ? '保存中…' : '保存する'}
-          onPress={handleSave}
+          onPress={() => void handleSave()}
           disabled={saving || weightValue <= 0}
         />
       </Card>
@@ -107,6 +106,11 @@ export default function WeightScreen() {
 
 const styles = StyleSheet.create({
   bmi: { fontSize: fontSize.sm, color: colors.textSub, textAlign: 'right' },
-  empty: { fontSize: fontSize.sm, color: colors.textFaint, textAlign: 'center', paddingVertical: spacing.md },
+  empty: {
+    fontSize: fontSize.sm,
+    color: colors.textFaint,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
   plain: { backgroundColor: 'transparent', padding: 0, gap: 0, shadowOpacity: 0, elevation: 0 },
 });

@@ -44,7 +44,7 @@ export async function listPantry(): Promise<PantryItem[]> {
             f.name AS food_name, f.group_code, ${NUTRIENT_COLUMNS}
      FROM pantry p JOIN foods f ON f.id = p.food_id
      -- 期限が近いものを上に出して、使い切りやすくする
-     ORDER BY CASE WHEN p.expires_on IS NULL THEN 1 ELSE 0 END, p.expires_on ASC, f.name ASC;`
+     ORDER BY CASE WHEN p.expires_on IS NULL THEN 1 ELSE 0 END, p.expires_on ASC, f.name ASC;`,
   );
   return rows.map(toPantryItem);
 }
@@ -56,13 +56,13 @@ export async function listPantry(): Promise<PantryItem[]> {
 export async function addToPantry(
   foodId: number,
   grams: number,
-  expiresOn: DayKey | null
+  expiresOn: DayKey | null,
 ): Promise<void> {
   const db = getDatabase();
   const now = new Date().toISOString();
   const existing = await db.getFirstAsync<{ id: number; grams: number; expires_on: string | null }>(
     'SELECT id, grams, expires_on FROM pantry WHERE food_id = ?;',
-    [foodId]
+    [foodId],
   );
 
   if (existing) {
@@ -86,16 +86,17 @@ export async function addToPantry(
 
   await db.runAsync(
     'INSERT INTO pantry (food_id, grams, expires_on, updated_at) VALUES (?, ?, ?, ?);',
-    [foodId, grams, expiresOn, now]
+    [foodId, grams, expiresOn, now],
   );
 }
 
 export async function updatePantryItem(
   id: number,
-  values: { grams: number; expiresOn: DayKey | null }
+  values: { grams: number; expiresOn: DayKey | null },
 ): Promise<void> {
   const db = getDatabase();
-  if (values.grams <= 0) {
+  if (!Number.isFinite(values.grams) || values.grams <= 0) {
+    // 0以下は「使い切った」とみなして消す。呼び出し側で確認を取ること
     await db.runAsync('DELETE FROM pantry WHERE id = ?;', [id]);
     return;
   }
@@ -124,7 +125,7 @@ export async function expiringFoodIds(until: DayKey): Promise<Set<number>> {
   const db = getDatabase();
   const rows = await db.getAllAsync<{ food_id: number }>(
     'SELECT food_id FROM pantry WHERE expires_on IS NOT NULL AND expires_on <= ?;',
-    [until]
+    [until],
   );
   return new Set(rows.map((row) => row.food_id));
 }
@@ -139,14 +140,16 @@ export async function consumeForDish(dishId: number, servings: number): Promise<
     `SELECT di.food_id, di.grams * ? / d.servings AS grams
      FROM dish_ingredients di JOIN dishes d ON d.id = di.dish_id
      WHERE di.dish_id = ?;`,
-    [servings, dishId]
+    [servings, dishId],
   );
 
-  await db.withTransactionAsync(async () => {
+  // 別の「作った」操作と重ならないよう排他にする。
+  // 通常のトランザクションは他の非同期クエリを巻き込むため
+  await db.withExclusiveTransactionAsync(async () => {
     for (const ingredient of ingredients) {
       const row = await db.getFirstAsync<{ id: number; grams: number }>(
         'SELECT id, grams FROM pantry WHERE food_id = ?;',
-        [ingredient.food_id]
+        [ingredient.food_id],
       );
       if (!row) continue;
       const remaining = row.grams - ingredient.grams;
