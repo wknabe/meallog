@@ -4,7 +4,7 @@
  * 既存のグラフライブラリは Skia などのネイティブ依存を持ち込むものが多く、
  * Expo Go での動作確認ができなくなるため、必要な2種類だけ react-native-svg で自作している。
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 
@@ -280,6 +280,98 @@ function Legend({ items }: { items: { color: string; label: string }[] }) {
   );
 }
 
+// ── 円グラフ（目標に対する進み具合）──
+
+export type ProgressRingProps = {
+  value: number;
+  /** 1周ぶんの量。これを超えると2周目に入る */
+  max: number;
+  size?: number;
+  thickness?: number;
+  /** 1周目の色 */
+  color?: string;
+  /** 2周目（超過ぶん）の色 */
+  overColor?: string;
+  /** 輪の中に置くもの */
+  children?: ReactNode;
+};
+
+/**
+ * 目標を1周として、達成度を輪で表す。
+ *
+ * 棒グラフだと目標を超えたぶんが伸びる先を失って頭打ちに見えるが、
+ * 輪なら2周目に入るだけなので「どれだけ超えたか」がそのまま形に出る。
+ * 2周目は色を変えて、超えていることがひと目で分かるようにする。
+ */
+export function ProgressRing({
+  value,
+  max,
+  size = 168,
+  thickness = 14,
+  color = colors.primary,
+  overColor = colors.danger,
+  children,
+}: ProgressRingProps) {
+  const radius = (size - thickness) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const center = size / 2;
+
+  const ratio = max > 0 ? value / max : 0;
+  const first = Math.max(0, Math.min(1, ratio));
+  // 2周目。3周目以降は輪では表せないので、満ちたまま止めて数字で見せる
+  const second = Math.max(0, Math.min(1, ratio - 1));
+
+  /** 進み具合を、上（12時の位置）から時計回りの弧にする */
+  const arc = (fraction: number) => ({
+    strokeDasharray: `${circumference} ${circumference}`,
+    strokeDashoffset: circumference * (1 - fraction),
+  });
+
+  return (
+    <View style={[styles.ring, { width: size, height: size }]}>
+      <Svg width={size} height={size}>
+        <G rotation={-90} origin={`${center}, ${center}`}>
+          {/* 目盛りの土台 */}
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={colors.surfaceMuted}
+            strokeWidth={thickness}
+            fill="none"
+          />
+          {first > 0 && (
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              // 2周目に入ったら1周目は控えめにして、超過ぶんを目立たせる
+              stroke={second > 0 ? colors.border : color}
+              strokeWidth={thickness}
+              fill="none"
+              strokeLinecap="round"
+              {...arc(first)}
+            />
+          )}
+          {second > 0 && (
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={overColor}
+              strokeWidth={thickness}
+              fill="none"
+              strokeLinecap="round"
+              {...arc(second)}
+            />
+          )}
+        </G>
+      </Svg>
+      <View style={styles.ringCenter}>{children}</View>
+    </View>
+  );
+}
+
 function EmptyChart({ onLayout }: { onLayout: (event: LayoutChangeEvent) => void }) {
   return (
     <View onLayout={onLayout} style={styles.empty}>
@@ -294,6 +386,16 @@ const styles = StyleSheet.create({
   legendDot: { width: 10, height: 10, borderRadius: 2 },
   legendLabel: { fontSize: fontSize.xs, color: colors.textSub },
   unit: { fontSize: fontSize.xs, color: colors.textFaint, textAlign: 'right' },
+  ring: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
+  ringCenter: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   empty: { height: CHART_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: fontSize.sm, color: colors.textFaint },
 });

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { ScreenHeader } from '@/components/ui/header';
+import { ProgressRing } from '@/components/ui/charts';
 import { Card, CardTitle, Divider, ProgressBar, Row, Screen } from '@/components/ui/layout';
 import {
   getActivityKcal,
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const profile = useAppStore((s) => s.profile);
   const settings = useAppStore((s) => s.settings);
   const currentWeightKg = useAppStore((s) => s.currentWeightKg);
+  const updateSettings = useAppStore((s) => s.updateSettings);
 
   const [totals, setTotals] = useState<DailyTotals | null>(null);
   const [exerciseKcal, setExerciseKcal] = useState(0);
@@ -123,6 +125,8 @@ export default function HomeScreen() {
   const adjustmentKcal = adjustment?.adjustmentKcal ?? 0;
   const adjustedTargetKcal = adjustedTarget(profile.targetKcal + bonusKcal, adjustmentKcal);
 
+  const overTarget = adjustedTargetKcal > 0 && intakeKcal > adjustedTargetKcal;
+
   const remaining = {
     kcal: adjustedTargetKcal - intakeKcal,
     proteinG: profile.targetProteinG - (totals?.proteinG ?? 0),
@@ -137,13 +141,25 @@ export default function HomeScreen() {
       {/* 摂取カロリー */}
       <Card>
         <CardTitle>摂取カロリー</CardTitle>
-        <View style={styles.kcalRow}>
-          <Text style={styles.kcalValue}>{Math.round(intakeKcal).toLocaleString()}</Text>
-          <Text style={styles.kcalTarget}>
+
+        <ProgressRing value={intakeKcal} max={adjustedTargetKcal}>
+          <Text style={[styles.ringValue, overTarget && styles.ringValueOver]}>
+            {Math.round(intakeKcal).toLocaleString()}
+          </Text>
+          <Text style={styles.ringUnit}>
             / {Math.round(adjustedTargetKcal).toLocaleString()} kcal
           </Text>
-        </View>
-        <ProgressBar value={intakeKcal} max={adjustedTargetKcal} />
+          {overTarget ? (
+            <Text style={styles.ringOver}>
+              {Math.round(intakeKcal - adjustedTargetKcal).toLocaleString()} kcal 超過
+            </Text>
+          ) : (
+            <Text style={styles.ringRemain}>
+              あと {Math.round(adjustedTargetKcal - intakeKcal).toLocaleString()} kcal
+            </Text>
+          )}
+        </ProgressRing>
+
         <View style={styles.kcalFooter}>
           <View style={styles.adjustNotes}>
             {bonusKcal > 0 && (
@@ -156,10 +172,31 @@ export default function HomeScreen() {
               </Text>
             )}
           </View>
-          <Text style={styles.percent}>
+          <Text style={[styles.percent, overTarget && styles.percentOver]}>
             {adjustedTargetKcal > 0 ? Math.round((intakeKcal / adjustedTargetKcal) * 100) : 0}%
           </Text>
         </View>
+
+        {exerciseKcal > 0 && (
+          <>
+            <Divider />
+            <Row
+              label="運動した分を目標に足す"
+              sub={
+                settings.addExerciseToTarget
+                  ? `今日の運動 ${Math.round(exerciseKcal)} kcal のうち ${Math.round(bonusKcal)} kcal を足しています`
+                  : `今日の運動 ${Math.round(exerciseKcal)} kcal は足していません`
+              }
+              value={
+                <Switch
+                  value={settings.addExerciseToTarget}
+                  onValueChange={(value) => void updateSettings({ addExerciseToTarget: value })}
+                  trackColor={{ true: colors.primary }}
+                />
+              }
+            />
+          </>
+        )}
       </Card>
 
       {/* PFC */}
@@ -354,13 +391,11 @@ function MacroBar({
 }
 
 const styles = StyleSheet.create({
-  kcalRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
-  kcalValue: {
-    fontSize: fontSize.display,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  kcalTarget: { fontSize: fontSize.md, color: colors.textSub },
+  ringValue: { fontSize: fontSize.display, fontWeight: '800', color: colors.text },
+  ringValueOver: { color: colors.danger },
+  ringUnit: { fontSize: fontSize.sm, color: colors.textSub },
+  ringRemain: { fontSize: fontSize.xs, color: colors.primary, fontWeight: '700', marginTop: 2 },
+  ringOver: { fontSize: fontSize.xs, color: colors.danger, fontWeight: '700', marginTop: 2 },
   kcalFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -373,6 +408,7 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     textAlign: 'right',
   },
+  percentOver: { color: colors.danger, fontWeight: '700' },
 
   macro: { gap: spacing.xs },
   macroHeader: {
