@@ -55,9 +55,16 @@ export default function PantryScreen() {
         {
           text: '削除する',
           style: 'destructive',
-          onPress: async () => {
-            await removePantryItem(item.id);
-            await reload();
+          onPress: () => {
+            void (async () => {
+              try {
+                await removePantryItem(item.id);
+                await reload();
+              } catch (error) {
+                console.error('食材の削除に失敗しました', error);
+                Alert.alert('削除できませんでした', 'もう一度お試しください。');
+              }
+            })();
           },
         },
       ]);

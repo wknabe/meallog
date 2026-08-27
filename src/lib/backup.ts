@@ -173,10 +173,13 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
 
   let restored = 0;
 
-  await db.withExclusiveTransactionAsync(async () => {
+  // 消してから入れ直すため、途中で失敗すると元のデータごと失われる。
+  // withExclusiveTransactionAsync は専用の接続を渡してくるので、
+  // 中の問い合わせは必ず txn 側に出すこと（db を使うとトランザクションの外になる）
+  await db.withExclusiveTransactionAsync(async (txn) => {
     // 依存の逆順に消す。外部キー制約に引っかからないようにするため
     for (const table of [...TABLES].reverse()) {
-      await db.runAsync(`DELETE FROM ${table};`);
+      await txn.runAsync(`DELETE FROM ${table};`);
     }
 
     for (const table of TABLES) {
@@ -184,7 +187,7 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
       for (const row of rows) {
         const columns = Object.keys(row);
         if (columns.length === 0) continue;
-        await db.runAsync(
+        await txn.runAsync(
           `INSERT OR REPLACE INTO ${table} (${columns.join(',')})
            VALUES (${columns.map(() => '?').join(',')});`,
           columns.map((column) => row[column] as string | number | null),

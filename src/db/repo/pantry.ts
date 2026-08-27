@@ -5,6 +5,8 @@
  * 食事記録から自動で引くと、外食や分量の誤差でズレが溜まり、
  * 結局信用できない在庫になって使われなくなるため。
  */
+import type { SQLiteDatabase } from 'expo-sqlite';
+
 import { getDatabase } from '@/db';
 import { NUTRIENT_KEYS, type Nutrients } from '@/db/nutrients';
 import type { DayKey } from '@/lib/day';
@@ -131,11 +133,38 @@ export async function expiringFoodIds(until: DayKey): Promise<Set<number>> {
 }
 
 /**
+ * 問い合わせの出し先。通常の接続でも、トランザクション用の接続でも渡せるようにする。
+ *
+ * withExclusiveTransactionAsync は専用の接続を新しく開いて引数で渡してくる。
+ * その中で外側の接続を使うと BEGIN/COMMIT の外で走ってしまい、
+ * 見た目はトランザクションでも実際には囲えていない。必ず渡された側を使うこと。
+ */
+export type DbExecutor = Pick<SQLiteDatabase, 'getAllAsync' | 'getFirstAsync' | 'runAsync'>;
+
+/**
  * 料理を作ったぶんだけ在庫を減らす。
  * 在庫より多く使った場合は0で止め、マイナスにはしない。
+ *
+ * 材料を1つずつ減らすため、途中で失敗すると半分だけ減った在庫が残ってしまう。
+ * それを防ぐために全体を1つのトランザクションで囲う。
+ * 呼び出し側が既にトランザクションを開いている場合は、その接続を executor で渡す。
  */
-export async function consumeForDish(dishId: number, servings: number): Promise<void> {
-  const db = getDatabase();
+export async function consumeForDish(
+  dishId: number,
+  servings: number,
+  executor?: DbExecutor,
+): Promise<void> {
+  if (executor) {
+    await consume(executor, dishId, servings);
+    return;
+  }
+  // 別の「作った」操作と重ならないよう排他にする
+  await getDatabase().withExclusiveTransactionAsync(async (txn) => {
+    await consume(txn, dishId, servings);
+  });
+}
+
+async function consume(db: DbExecutor, dishId: number, servings: number): Promise<void> {
   const ingredients = await db.getAllAsync<{ food_id: number; grams: number }>(
     `SELECT di.food_id, di.grams * ? / d.servings AS grams
      FROM dish_ingredients di JOIN dishes d ON d.id = di.dish_id
@@ -143,25 +172,21 @@ export async function consumeForDish(dishId: number, servings: number): Promise<
     [servings, dishId],
   );
 
-  // 別の「作った」操作と重ならないよう排他にする。
-  // 通常のトランザクションは他の非同期クエリを巻き込むため
-  await db.withExclusiveTransactionAsync(async () => {
-    for (const ingredient of ingredients) {
-      const row = await db.getFirstAsync<{ id: number; grams: number }>(
-        'SELECT id, grams FROM pantry WHERE food_id = ?;',
-        [ingredient.food_id],
-      );
-      if (!row) continue;
-      const remaining = row.grams - ingredient.grams;
-      if (remaining <= 0) {
-        await db.runAsync('DELETE FROM pantry WHERE id = ?;', [row.id]);
-      } else {
-        await db.runAsync('UPDATE pantry SET grams = ?, updated_at = ? WHERE id = ?;', [
-          remaining,
-          new Date().toISOString(),
-          row.id,
-        ]);
-      }
+  for (const ingredient of ingredients) {
+    const row = await db.getFirstAsync<{ id: number; grams: number }>(
+      'SELECT id, grams FROM pantry WHERE food_id = ?;',
+      [ingredient.food_id],
+    );
+    if (!row) continue;
+    const remaining = row.grams - ingredient.grams;
+    if (remaining <= 0) {
+      await db.runAsync('DELETE FROM pantry WHERE id = ?;', [row.id]);
+    } else {
+      await db.runAsync('UPDATE pantry SET grams = ?, updated_at = ? WHERE id = ?;', [
+        remaining,
+        new Date().toISOString(),
+        row.id,
+      ]);
     }
-  });
+  }
 }

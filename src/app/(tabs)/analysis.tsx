@@ -128,11 +128,13 @@ export default function AnalysisScreen() {
     }, [from, todayKey, profile, settings.burnSource, currentWeightKg]),
   );
 
-  // 記録がある日だけを合計する。記録し忘れの日を0として数えると収支が実態とずれる。
-  // 体重が分からず消費を推定できない日も、収支が出せないので合計から外す
-  const recorded = useMemo(() => rows.filter((row) => row.intakeKcal > 0 && row.burnKnown), [rows]);
-  const totalIntake = recorded.reduce((sum, row) => sum + row.intakeKcal, 0);
-  const totalBurn = recorded.reduce((sum, row) => sum + row.burnKcal, 0);
+  // 記録がある日だけを合計する。記録し忘れの日を0として数えると実態とずれる
+  const recorded = useMemo(() => rows.filter((row) => row.intakeKcal > 0), [rows]);
+  // 収支は、消費カロリーを推定できた日だけで出す。
+  // 体重が一度も分からない日は消費が0になり、食べ過ぎているように見えてしまう
+  const balanceDays = useMemo(() => recorded.filter((row) => row.burnKnown), [recorded]);
+  const totalIntake = balanceDays.reduce((sum, row) => sum + row.intakeKcal, 0);
+  const totalBurn = balanceDays.reduce((sum, row) => sum + row.burnKcal, 0);
   const balance = totalIntake - totalBurn;
 
   if (!profile) return null;
@@ -165,7 +167,7 @@ export default function AnalysisScreen() {
       ) : tab === 'calorie' ? (
         <>
           <Card>
-            <CardTitle right={<Text style={styles.days}>記録 {recorded.length}日</Text>}>
+            <CardTitle right={<Text style={styles.days}>記録 {balanceDays.length}日</Text>}>
               期間の合計
             </CardTitle>
             <Row label="摂取カロリー" value={`${Math.round(totalIntake).toLocaleString()} kcal`} />
@@ -187,9 +189,11 @@ export default function AnalysisScreen() {
               </Text>
             </View>
             <Text style={styles.balanceNote}>
-              {balance <= 0
-                ? `脂肪に換算すると約 ${(Math.abs(balance) / 7200).toFixed(2)}kg 分のマイナスです`
-                : `脂肪に換算すると約 ${(balance / 7200).toFixed(2)}kg 分のプラスです`}
+              {balanceDays.length === 0
+                ? '体重の記録がないため、消費カロリーを見積もれません。体重を記録すると収支が出ます。'
+                : balance <= 0
+                  ? `脂肪に換算すると約 ${(Math.abs(balance) / 7200).toFixed(2)}kg 分のマイナスです`
+                  : `脂肪に換算すると約 ${(balance / 7200).toFixed(2)}kg 分のプラスです`}
             </Text>
           </Card>
 
@@ -199,7 +203,7 @@ export default function AnalysisScreen() {
               data={rows.map((row) => ({
                 label: formatDayShort(row.date),
                 primary: row.intakeKcal,
-                secondary: row.burnKcal,
+                secondary: row.burnKnown ? row.burnKcal : 0,
               }))}
             />
           </Card>
@@ -316,7 +320,7 @@ export default function AnalysisScreen() {
                 data={rows.map((row) => ({
                   label: formatDayShort(row.date),
                   primary: row.intakeKcal,
-                  secondary: row.burnKcal,
+                  secondary: row.burnKnown ? row.burnKcal : 0,
                 }))}
               />
             )}

@@ -119,21 +119,24 @@ export async function markCooked(entryId: number, cooked: boolean): Promise<void
     return;
   }
 
-  const row = await db.getFirstAsync<{ ref_id: number; quantity: number }>(
-    'SELECT ref_id, quantity FROM meal_plans WHERE id = ?;',
-    [entryId],
-  );
-  if (!row) return;
+  // 「作った」と在庫の減算は、片方だけ残らないようまとめて1つのトランザクションで行う
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const row = await txn.getFirstAsync<{ ref_id: number; quantity: number }>(
+      "SELECT ref_id, quantity FROM meal_plans WHERE id = ? AND ref_type = 'dish';",
+      [entryId],
+    );
+    if (!row) return;
 
-  // 「未調理のときだけ1にする」を1文にまとめる。
-  // 読んでから書くと、素早く2回押したときに在庫が二重に減る
-  const result = await db.runAsync(
-    'UPDATE meal_plans SET cooked = 1 WHERE id = ? AND cooked = 0;',
-    [entryId],
-  );
-  if (result.changes !== 1) return;
+    // 「未調理のときだけ1にする」を1文にまとめる。
+    // 読んでから書くと、素早く2回押したときに在庫が二重に減る
+    const result = await txn.runAsync(
+      'UPDATE meal_plans SET cooked = 1 WHERE id = ? AND cooked = 0;',
+      [entryId],
+    );
+    if (result.changes !== 1) return;
 
-  await consumeForDish(row.ref_id, row.quantity);
+    await consumeForDish(row.ref_id, row.quantity, txn);
+  });
 }
 
 /** 献立の1日ぶんの栄養価 */
