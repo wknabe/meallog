@@ -57,6 +57,9 @@ eas build --profile development --platform android
 
 端末側に Google の「Health Connect」アプリが必要です（Android 14 以降は標準搭載）。
 
+Health Connect が Android 8.0 以上を必要とするため、`minSdkVersion` を 26 にしています
+（`app.json` の expo-build-properties）。
+
 iPhone（HealthKit）は Apple Developer Program への登録が必要なため未対応です。
 コード側は `src/lib/health.ts` に窓口をまとめてあり、iOS 対応はそこに足せます。
 
