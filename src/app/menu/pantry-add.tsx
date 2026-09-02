@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Field, NumberInput } from '@/components/ui/controls';
@@ -9,6 +9,7 @@ import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, EmptyState } from '@/components/ui/layout';
 import { FOOD_GROUPS, listFoodUnits, searchFoods, type Food, type FoodUnit } from '@/db/repo/foods';
 import { addToPantry } from '@/db/repo/pantry';
+import { showAlert } from '@/lib/alert';
 import { toGrams } from '@/lib/units';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
@@ -58,7 +59,7 @@ export default function PantryAddScreen() {
       router.back();
     } catch (error) {
       console.error('冷蔵庫への追加に失敗しました', error);
-      Alert.alert('追加できませんでした', 'もう一度お試しください。');
+      showAlert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }

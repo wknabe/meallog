@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import {
   Button,
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, Screen } from '@/components/ui/layout';
 import { createDish, deleteDish, updateDish } from '@/db/repo/dishes';
+import { showAlert } from '@/lib/alert';
 import { formatGrams } from '@/lib/units';
 import {
   CUISINE_LABELS,
@@ -82,7 +83,7 @@ export default function DishEditScreen() {
       router.back();
     } catch (error) {
       console.error('料理の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -90,7 +91,7 @@ export default function DishEditScreen() {
 
   function handleDelete() {
     if (draft.dishId == null) return;
-    Alert.alert('この料理を削除しますか？', draft.name, [
+    showAlert('この料理を削除しますか？', draft.name, [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',

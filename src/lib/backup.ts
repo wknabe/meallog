@@ -13,6 +13,7 @@ import JSZip from 'jszip';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { getDatabase } from '@/db';
+import { inTransaction } from '@/db/transaction';
 
 /** 書き出す対象のテーブル。順序は読み込み時の依存関係に合わせている */
 const TABLES = [
@@ -179,7 +180,7 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
   // 消してから入れ直すため、途中で失敗すると元のデータごと失われる。
   // withExclusiveTransactionAsync は専用の接続を渡してくるので、
   // 中の問い合わせは必ず txn 側に出すこと（db を使うとトランザクションの外になる）
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     // 依存の逆順に消す。外部キー制約に引っかからないようにするため
     for (const table of [...TABLES].reverse()) {
       await txn.runAsync(`DELETE FROM ${table};`);

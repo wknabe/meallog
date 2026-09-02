@@ -1,5 +1,6 @@
 /** 献立の保存と読み込み */
 import { getDatabase } from '@/db';
+import { inTransaction } from '@/db/transaction';
 import { consumeForDish } from '@/db/repo/pantry';
 import { dishNutrition, getDishes, type Dish } from '@/db/repo/dishes';
 import type { DayKey } from '@/lib/day';
@@ -120,7 +121,7 @@ export async function markCooked(entryId: number, cooked: boolean): Promise<void
   }
 
   // 「作った」と在庫の減算は、片方だけ残らないようまとめて1つのトランザクションで行う
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     const row = await txn.getFirstAsync<{ ref_id: number; quantity: number }>(
       "SELECT ref_id, quantity FROM meal_plans WHERE id = ? AND ref_type = 'dish';",
       [entryId],

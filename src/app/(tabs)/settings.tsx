@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 
 import { ScreenHeader } from '@/components/ui/header';
 import {
@@ -20,6 +20,7 @@ import { countFoods } from '@/db/repo/foods';
 import { listDailyTotals } from '@/db/repo/meals';
 import { FOOD_DATA_SOURCE } from '@/db/seed/foods';
 import { PRODUCT_DATA_SOURCE } from '@/db/seed/products';
+import { showAlert } from '@/lib/alert';
 import { exportBackup, importBackup, shareBackup } from '@/lib/backup';
 import { dailyStepsBurn, exerciseBonus } from '@/lib/energy';
 import { HEALTH_SOURCE_NAME } from '@/lib/health';
@@ -186,7 +187,7 @@ export default function SettingsScreen() {
       });
     } catch (error) {
       console.error('目標の再計算に失敗しました', error);
-      Alert.alert('やり直せませんでした', 'もう一度お試しください。');
+      showAlert('やり直せませんでした', 'もう一度お試しください。');
     }
   }
 
@@ -200,7 +201,7 @@ export default function SettingsScreen() {
       await shareBackup(uri);
     } catch (error) {
       console.error('バックアップの書き出しに失敗しました', error);
-      Alert.alert(
+      showAlert(
         '書き出せませんでした',
         error instanceof Error ? error.message : 'もう一度お試しください。',
       );
@@ -219,7 +220,7 @@ export default function SettingsScreen() {
     if (picked.canceled || !picked.assets?.[0]) return;
     const uri = picked.assets[0].uri;
 
-    Alert.alert(
+    showAlert(
       '復元すると今のデータは消えます',
       '食事・体重・運動・設定を含め、すべてバックアップの内容に置き換わります。続けますか？',
       [
@@ -232,13 +233,13 @@ export default function SettingsScreen() {
             try {
               const result = await importBackup(uri);
               await useAppStore.getState().bootstrap();
-              Alert.alert(
+              showAlert(
                 '復元しました',
                 `${result.restored}件のデータ${result.photos > 0 ? `と${result.photos}枚の写真` : ''}を戻しました。`,
               );
             } catch (error) {
               console.error('バックアップの復元に失敗しました', error);
-              Alert.alert(
+              showAlert(
                 '復元できませんでした',
                 error instanceof Error ? error.message : 'ファイルを確認してください。',
               );
@@ -252,7 +253,7 @@ export default function SettingsScreen() {
   }
 
   function confirmReset() {
-    Alert.alert(
+    showAlert(
       'データをすべて削除しますか？',
       '食事・体重・設定を含むすべての記録が消えます。この操作は取り消せません。',
       [

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
@@ -16,6 +16,7 @@ import {
 } from '@/db/repo/meal-plans';
 import { createMeal } from '@/db/repo/meals';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { formatDayLabel, fromDayKey } from '@/lib/day';
 import { MEAL_SLOT_LABELS, MEAL_SLOT_ORDER, type MealSlot } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -59,7 +60,7 @@ export default function TodayPlanScreen() {
       await reload();
     } catch (error) {
       console.error('献立の更新に失敗しました', error);
-      Alert.alert('更新できませんでした', 'もう一度お試しください。');
+      showAlert('更新できませんでした', 'もう一度お試しください。');
     } finally {
       setBusy(false);
     }
@@ -85,17 +86,17 @@ export default function TodayPlanScreen() {
         memo: null,
         items: slotEntries.map((entry) => dishToMealItem(entry.dish!, entry.servings)),
       });
-      Alert.alert('記録しました', `${MEAL_SLOT_LABELS[slot]}として食事に追加しました。`);
+      showAlert('記録しました', `${MEAL_SLOT_LABELS[slot]}として食事に追加しました。`);
     } catch (error) {
       console.error('食事の記録に失敗しました', error);
-      Alert.alert('記録できませんでした', 'もう一度お試しください。');
+      showAlert('記録できませんでした', 'もう一度お試しください。');
     } finally {
       setBusy(false);
     }
   }
 
   function confirmDelete() {
-    Alert.alert('この日の献立を削除しますか？', formatDayLabel(date), [
+    showAlert('この日の献立を削除しますか？', formatDayLabel(date), [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',
@@ -107,7 +108,7 @@ export default function TodayPlanScreen() {
               await reload();
             } catch (error) {
               console.error('献立の削除に失敗しました', error);
-              Alert.alert('削除できませんでした', 'もう一度お試しください。');
+              showAlert('削除できませんでした', 'もう一度お試しください。');
             }
           })();
         },

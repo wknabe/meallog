@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, NumberInput } from '@/components/ui/controls';
 import { DateField } from '@/components/ui/date-field';
@@ -9,6 +9,7 @@ import { Card, CardTitle, Divider, EmptyState, Screen } from '@/components/ui/la
 import { FOOD_GROUPS } from '@/db/repo/foods';
 import { listPantry, removePantryItem, updatePantryItem, type PantryItem } from '@/db/repo/pantry';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { differenceInDays, formatDayLabel } from '@/lib/day';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, spacing } from '@/theme/colors';
@@ -45,7 +46,7 @@ export default function PantryScreen() {
     }
 
     if (value <= 0) {
-      Alert.alert('この食材を削除しますか？', `${item.foodName} を0gにすると一覧から消えます。`, [
+      showAlert('この食材を削除しますか？', `${item.foodName} を0gにすると一覧から消えます。`, [
         {
           text: 'キャンセル',
           style: 'cancel',
@@ -62,7 +63,7 @@ export default function PantryScreen() {
                 await reload();
               } catch (error) {
                 console.error('食材の削除に失敗しました', error);
-                Alert.alert('削除できませんでした', 'もう一度お試しください。');
+                showAlert('削除できませんでした', 'もう一度お試しください。');
               }
             })();
           },
@@ -76,7 +77,7 @@ export default function PantryScreen() {
   }
 
   function confirmRemove(item: PantryItem) {
-    Alert.alert('この食材を削除しますか？', item.foodName, [
+    showAlert('この食材を削除しますか？', item.foodName, [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',
@@ -88,7 +89,7 @@ export default function PantryScreen() {
               await reload();
             } catch (error) {
               console.error('食材の削除に失敗しました', error);
-              Alert.alert('削除できませんでした', 'もう一度お試しください。');
+              showAlert('削除できませんでした', 'もう一度お試しください。');
             }
           })();
         },

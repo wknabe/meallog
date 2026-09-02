@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, EmptyState, Screen } from '@/components/ui/layout';
@@ -14,6 +14,7 @@ import {
   type ShoppingList,
 } from '@/db/repo/shopping';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { addDays, formatDayLabel } from '@/lib/day';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
@@ -47,7 +48,7 @@ export default function ShoppingScreen() {
       await reload();
     } catch (error) {
       console.error('買い物リストの作成に失敗しました', error);
-      Alert.alert('作成できませんでした', 'もう一度お試しください。');
+      showAlert('作成できませんでした', 'もう一度お試しください。');
     } finally {
       setBusy(false);
     }
@@ -67,7 +68,7 @@ export default function ShoppingScreen() {
     setBusy(true);
     try {
       const moved = await moveCheckedToPantry(list.id);
-      Alert.alert(
+      showAlert(
         moved > 0 ? `${moved}品を冷蔵庫に追加しました` : '追加する食材がありません',
         moved > 0
           ? 'チェックした食材を在庫に反映しました。'
@@ -76,7 +77,7 @@ export default function ShoppingScreen() {
       await reload();
     } catch (error) {
       console.error('冷蔵庫への反映に失敗しました', error);
-      Alert.alert('反映できませんでした', 'もう一度お試しください。');
+      showAlert('反映できませんでした', 'もう一度お試しください。');
     } finally {
       setBusy(false);
     }

@@ -3,13 +3,14 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, SegmentedControl, TextField } from '@/components/ui/controls';
 import { DateField, TimeField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Screen } from '@/components/ui/layout';
 import { createFavorite } from '@/db/repo/favorites';
 import { createMeal, deleteMeal, updateMeal } from '@/db/repo/meals';
+import { showAlert } from '@/lib/alert';
 import { reportError } from '@/lib/errors';
 import { formatDayLabel, fromDayKey, logicalDate, toDayKey } from '@/lib/day';
 import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
@@ -34,7 +35,7 @@ export default function EditMealScreen() {
   async function handleSave() {
     if (saving) return;
     if (draft.items.length === 0) {
-      Alert.alert('食べたものが登録されていません', '食材や料理を1つ以上追加してください。');
+      showAlert('食べたものが登録されていません', '食材や料理を1つ以上追加してください。');
       return;
     }
     setSaving(true);
@@ -57,7 +58,7 @@ export default function EditMealScreen() {
       router.replace('/meals');
     } catch (error) {
       console.error('食事の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -65,7 +66,7 @@ export default function EditMealScreen() {
 
   function handleDelete() {
     if (draft.mealId == null) return;
-    Alert.alert('この記録を削除しますか？', '取り消せません。', [
+    showAlert('この記録を削除しますか？', '取り消せません。', [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',
@@ -90,7 +91,7 @@ export default function EditMealScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('アクセスが許可されていません', '端末の設定から許可してください。');
+      showAlert('アクセスが許可されていません', '端末の設定から許可してください。');
       return;
     }
     const result =
@@ -120,14 +121,14 @@ export default function EditMealScreen() {
     const excluded = draft.items.length - savable.length;
 
     if (savable.length === 0) {
-      Alert.alert(
+      showAlert(
         '登録できません',
         '手入力した項目は「よく食べる食事」に登録できません。商品として登録すると次回から検索できます。',
       );
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'よく食べる食事に登録',
       excluded > 0
         ? `手入力の${excluded}件を除いた${savable.length}件を登録します。`
@@ -150,7 +151,7 @@ export default function EditMealScreen() {
                 unitLabel: item.unitLabel,
               })),
             });
-            Alert.alert('登録しました');
+            showAlert('登録しました');
           },
         },
       ],

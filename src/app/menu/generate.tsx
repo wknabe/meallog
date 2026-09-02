@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button, Chip, ChipGroup, Field } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
 import { savePlanForDate } from '@/db/repo/meal-plans';
 import { generatePlan } from '@/db/repo/plan-generator';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { formatDayLabel } from '@/lib/day';
 import type { DayPlan } from '@/lib/mealplan';
 import {
@@ -78,7 +79,7 @@ export default function GeneratePlanScreen() {
       } catch (error) {
         if (requestId !== requestIdRef.current) return;
         console.error('献立の作成に失敗しました', error);
-        Alert.alert('作成できませんでした', 'もう一度お試しください。');
+        showAlert('作成できませんでした', 'もう一度お試しください。');
       } finally {
         if (requestId === requestIdRef.current) setLoading(false);
       }
@@ -109,7 +110,7 @@ export default function GeneratePlanScreen() {
       router.replace('/menu/today');
     } catch (error) {
       console.error('献立の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }

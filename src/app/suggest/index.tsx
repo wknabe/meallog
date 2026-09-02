@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Chip, ChipGroup, SegmentedControl } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
@@ -12,6 +12,7 @@ import { createMeal } from '@/db/repo/meals';
 import { listProducts } from '@/db/repo/products';
 import { getFood } from '@/db/repo/foods';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { logicalDate } from '@/lib/day';
 import { nutrientsForFood } from '@/lib/nutrition';
 import {
@@ -214,7 +215,7 @@ export default function SuggestScreen() {
       router.replace('/meals');
     } catch (error) {
       console.error('食事の追加に失敗しました', error);
-      Alert.alert('追加できませんでした', 'もう一度お試しください。');
+      showAlert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -237,7 +238,7 @@ export default function SuggestScreen() {
       router.replace('/meals');
     } catch (error) {
       console.error('食事の追加に失敗しました', error);
-      Alert.alert('追加できませんでした', 'もう一度お試しください。');
+      showAlert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -262,7 +263,7 @@ export default function SuggestScreen() {
       router.replace('/meals');
     } catch (error) {
       console.error('食事の追加に失敗しました', error);
-      Alert.alert('追加できませんでした', 'もう一度お試しください。');
+      showAlert('追加できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }

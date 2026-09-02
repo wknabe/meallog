@@ -6,13 +6,14 @@
  */
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import { Button, SegmentedControl } from '@/components/ui/controls';
 import { Card, CardTitle, Screen } from '@/components/ui/layout';
 import { createActivity, saveTrack } from '@/db/repo/activities';
 import { formatElapsed, useTrack } from '@/hooks/use-track';
+import { showAlert } from '@/lib/alert';
 import { today } from '@/lib/day';
 import { METS, estimateExerciseKcal } from '@/lib/energy';
 import { paceLabel, trackToPath } from '@/lib/geo';
@@ -71,7 +72,7 @@ export default function TrackScreen() {
       router.back();
     } catch (error) {
       console.error('GPS記録の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -82,7 +83,7 @@ export default function TrackScreen() {
       router.back();
       return;
     }
-    Alert.alert('計測をやめますか？', 'ここまでの記録は保存されません。', [
+    showAlert('計測をやめますか？', 'ここまでの記録は保存されません。', [
       { text: '続ける', style: 'cancel' },
       {
         text: 'やめる',

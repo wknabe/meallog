@@ -5,9 +5,9 @@
  * 食事記録から自動で引くと、外食や分量の誤差でズレが溜まり、
  * 結局信用できない在庫になって使われなくなるため。
  */
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import { getDatabase } from '@/db';
+import { inTransaction, type DbExecutor } from '@/db/transaction';
+export type { DbExecutor };
 import { NUTRIENT_KEYS, type Nutrients } from '@/db/nutrients';
 import type { DayKey } from '@/lib/day';
 
@@ -133,15 +133,6 @@ export async function expiringFoodIds(until: DayKey): Promise<Set<number>> {
 }
 
 /**
- * 問い合わせの出し先。通常の接続でも、トランザクション用の接続でも渡せるようにする。
- *
- * withExclusiveTransactionAsync は専用の接続を新しく開いて引数で渡してくる。
- * その中で外側の接続を使うと BEGIN/COMMIT の外で走ってしまい、
- * 見た目はトランザクションでも実際には囲えていない。必ず渡された側を使うこと。
- */
-export type DbExecutor = Pick<SQLiteDatabase, 'getAllAsync' | 'getFirstAsync' | 'runAsync'>;
-
-/**
  * 料理を作ったぶんだけ在庫を減らす。
  * 在庫より多く使った場合は0で止め、マイナスにはしない。
  *
@@ -159,7 +150,7 @@ export async function consumeForDish(
     return;
   }
   // 別の「作った」操作と重ならないよう排他にする
-  await getDatabase().withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(getDatabase(), async (txn) => {
     await consume(txn, dishId, servings);
   });
 }

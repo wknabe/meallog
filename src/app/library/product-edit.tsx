@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Field, NumberInput, SegmentedControl, TextField } from '@/components/ui/controls';
 import { Card, CardTitle, Screen } from '@/components/ui/layout';
@@ -15,6 +15,7 @@ import {
   type NutrientKey,
 } from '@/db/nutrients';
 import { createProduct, getProductForEdit, updateProduct } from '@/db/repo/products';
+import { showAlert } from '@/lib/alert';
 import { reportError } from '@/lib/errors';
 import { OCR_AVAILABLE, recognizeNutritionLabel, type LabelBasis } from '@/lib/ocr';
 import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
@@ -92,7 +93,7 @@ export default function ProductEditScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('アクセスが許可されていません', '端末の設定から許可してください。');
+      showAlert('アクセスが許可されていません', '端末の設定から許可してください。');
       return;
     }
     const result =
@@ -144,7 +145,7 @@ export default function ProductEditScreen() {
   async function handleSave() {
     if (saving || !canSave) return;
     if (!basisReady) {
-      Alert.alert('内容量を入力してください', '1食あたりの表記では、1食が何グラムかが必要です。');
+      showAlert('内容量を入力してください', '1食あたりの表記では、1食が何グラムかが必要です。');
       return;
     }
     setSaving(true);
@@ -173,7 +174,7 @@ export default function ProductEditScreen() {
       router.back();
     } catch (error) {
       console.error('商品の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -304,7 +305,7 @@ export default function ProductEditScreen() {
                 setBasis(value);
                 return;
               }
-              Alert.alert(
+              showAlert(
                 '基準を切り替えますか？',
                 '入力済みの数値は、切り替え後の基準の値として扱われます。パッケージの表記と合っているか確認してください。',
                 [

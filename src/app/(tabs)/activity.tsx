@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Field, NumberInput, SegmentedControl } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, EmptyState, Row, Screen } from '@/components/ui/layout';
@@ -18,6 +18,7 @@ import {
   type HealthDaily,
 } from '@/db/repo/activities';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { addDays, calcAge, formatDayLabel } from '@/lib/day';
 import { dailyStepsBurn, estimateBurn, estimateStepsKcal, stepsToKm } from '@/lib/energy';
 import {
@@ -75,7 +76,7 @@ export default function ActivityScreen() {
     if (savingSteps) return;
     const value = Number(stepsText);
     if (!Number.isFinite(value) || value < 0) {
-      Alert.alert('歩数を確かめてください', '0以上の数字を入れてください。');
+      showAlert('歩数を確かめてください', '0以上の数字を入れてください。');
       return;
     }
     setSavingSteps(true);
@@ -84,7 +85,7 @@ export default function ActivityScreen() {
       await reload();
     } catch (error) {
       console.error('歩数の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSavingSteps(false);
     }
@@ -104,7 +105,7 @@ export default function ActivityScreen() {
     try {
       const granted = await requestHealthPermissions();
       if (granted === 0) {
-        Alert.alert(
+        showAlert(
           'データを読み取れません',
           'Health Connect でこのアプリへのアクセスを許可してください。',
         );
@@ -112,15 +113,15 @@ export default function ActivityScreen() {
       }
       const values = await readDailyHealth(date, settings.dayStartHour);
       if (values == null) {
-        Alert.alert('取得できませんでした', 'もう一度お試しください。');
+        showAlert('取得できませんでした', 'もう一度お試しください。');
         return;
       }
       await saveHealthDaily(date, values, 'health_connect');
       await reload();
-      Alert.alert('取り込みました', 'スマートウォッチのデータを更新しました。');
+      showAlert('取り込みました', 'スマートウォッチのデータを更新しました。');
     } catch (error) {
       console.error('ヘルスデータの取り込みに失敗しました', error);
-      Alert.alert('取り込めませんでした', 'もう一度お試しください。');
+      showAlert('取り込めませんでした', 'もう一度お試しください。');
     } finally {
       setSyncing(false);
     }
@@ -146,7 +147,7 @@ export default function ActivityScreen() {
   }
 
   function confirmDelete(activity: Activity) {
-    Alert.alert('この記録を削除しますか？', activity.name ?? '運動の記録', [
+    showAlert('この記録を削除しますか？', activity.name ?? '運動の記録', [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',

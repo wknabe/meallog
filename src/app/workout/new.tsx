@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Button,
@@ -19,6 +19,7 @@ import {
   saveExercises,
   updateActivity,
 } from '@/db/repo/activities';
+import { showAlert } from '@/lib/alert';
 import { formatDayLabel, today } from '@/lib/day';
 import {
   METS,
@@ -182,7 +183,7 @@ export default function NewWorkoutScreen() {
       router.back();
     } catch (error) {
       console.error('運動の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }

@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { Button, Field, NumberInput } from '@/components/ui/controls';
 import { DateField } from '@/components/ui/date-field';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { listWeights, saveWeight, type WeightRecord } from '@/db/repo/weights';
+import { showAlert } from '@/lib/alert';
 import { addDays, formatDayLabel, today } from '@/lib/day';
 import { calcBmi } from '@/lib/targets';
 import { useAppStore } from '@/store/app';
@@ -51,7 +52,7 @@ export default function WeightScreen() {
       router.back();
     } catch (error) {
       console.error('体重の保存に失敗しました', error);
-      Alert.alert('保存できませんでした', 'もう一度お試しください。');
+      showAlert('保存できませんでした', 'もう一度お試しください。');
     } finally {
       setSaving(false);
     }

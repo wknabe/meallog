@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/controls';
 import { Card, CardTitle, Divider, Row, Screen } from '@/components/ui/layout';
 import { listPlanForRange, savePlanForDate, type PlanEntryRecord } from '@/db/repo/meal-plans';
 import { generatePlan } from '@/db/repo/plan-generator';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { addDays, dateRange, formatDayLabel, type DayKey } from '@/lib/day';
 import { MEAL_SLOT_LABELS, MEAL_SLOT_ORDER, type MealSlot } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -84,7 +85,7 @@ export default function WeekPlanScreen() {
       await reload();
     } catch (error) {
       console.error('1週間の献立作成に失敗しました', error);
-      Alert.alert('作成できませんでした', 'もう一度お試しください。');
+      showAlert('作成できませんでした', 'もう一度お試しください。');
     } finally {
       runningRef.current = false;
       setGenerating(false);
@@ -96,7 +97,7 @@ export default function WeekPlanScreen() {
       void generateWeek();
       return;
     }
-    Alert.alert(
+    showAlert(
       '既存の献立を置き換えますか？',
       `${filledDays}日ぶんの献立が登録されています。作り直すと上書きされます。`,
       [

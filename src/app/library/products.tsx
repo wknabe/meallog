@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button, SegmentedControl } from '@/components/ui/controls';
 import { EmptyState, Screen } from '@/components/ui/layout';
@@ -14,6 +14,7 @@ import {
 } from '@/db/repo/products';
 import { PRODUCT_DATA_SOURCE } from '@/db/seed/products';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
+import { showAlert } from '@/lib/alert';
 
 type Tab = 'mine' | 'catalog';
 
@@ -61,7 +62,7 @@ export default function ProductsScreen() {
       router.push({ pathname: '/library/product-edit', params: { id } });
     } catch (error) {
       console.error('商品の取り込みに失敗しました', error);
-      Alert.alert('取り込めませんでした', 'もう一度お試しください。');
+      showAlert('取り込めませんでした', 'もう一度お試しください。');
     } finally {
       setImporting(false);
     }
@@ -71,14 +72,14 @@ export default function ProductsScreen() {
     // 料理の材料などから参照されていると削除できないため、先に確認する
     const references = await countProductReferences(product.id);
     if (references > 0) {
-      Alert.alert(
+      showAlert(
         '削除できません',
         `この商品は料理の材料や買い物リストで${references}件使われています。先にそちらから外してください。`,
       );
       return;
     }
 
-    Alert.alert('この商品を削除しますか？', product.name, [
+    showAlert('この商品を削除しますか？', product.name, [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',
@@ -89,7 +90,7 @@ export default function ProductsScreen() {
             await reload();
           } catch (error) {
             console.error('商品の削除に失敗しました', error);
-            Alert.alert('削除できませんでした', 'この商品はどこかで使われている可能性があります。');
+            showAlert('削除できませんでした', 'この商品はどこかで使われている可能性があります。');
           }
         },
       },

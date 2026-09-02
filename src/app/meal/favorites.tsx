@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState, Screen } from '@/components/ui/layout';
 import {
@@ -11,6 +11,7 @@ import {
   type MealFavorite,
 } from '@/db/repo/favorites';
 import { favoriteToMealItems } from '@/db/repo/meal-builder';
+import { showAlert } from '@/lib/alert';
 import { MEAL_SLOT_LABELS } from '@/lib/types';
 import { useMealDraftStore } from '@/store/meal-draft';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
@@ -39,11 +40,11 @@ export default function FavoritesScreen() {
     try {
       const { items, skipped } = await favoriteToMealItems(favorite.items);
       if (items.length === 0) {
-        Alert.alert('登録できませんでした', '参照している食品や料理が見つかりませんでした。');
+        showAlert('登録できませんでした', '参照している食品や料理が見つかりませんでした。');
         return;
       }
       if (skipped > 0) {
-        Alert.alert(
+        showAlert(
           `${skipped}件を取り込めませんでした`,
           '食品や単位の登録が変わっている可能性があります。残りの項目を追加しました。',
         );
@@ -58,7 +59,7 @@ export default function FavoritesScreen() {
   }
 
   function confirmDelete(favorite: MealFavorite) {
-    Alert.alert('このテンプレートを削除しますか？', favorite.name, [
+    showAlert('このテンプレートを削除しますか？', favorite.name, [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除する',

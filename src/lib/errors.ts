@@ -6,11 +6,11 @@
  *
  *   onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
  */
-import { Alert } from 'react-native';
+import { showAlert } from './alert';
 
 export function reportError(label: string): (error: unknown) => void {
   return (error) => {
     console.error(`${label}に失敗しました`, error);
-    Alert.alert(`${label}に失敗しました`, 'もう一度お試しください。');
+    showAlert(`${label}に失敗しました`, 'もう一度お試しください。');
   };
 }

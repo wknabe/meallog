@@ -1,5 +1,6 @@
 /** 運動記録（手入力）の読み書き */
 import { getDatabase } from '@/db';
+import { inTransaction } from '@/db/transaction';
 import type { DayKey } from '@/lib/day';
 import type { ExerciseDraft, ExerciseSet } from '@/lib/equipment';
 import type { ActivityType } from '@/lib/types';
@@ -134,7 +135,7 @@ export async function deleteActivity(id: number): Promise<void> {
  */
 export async function saveExercises(activityId: number, exercises: ExerciseDraft[]): Promise<void> {
   const db = getDatabase();
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     // 作り直しの形にする。編集で種目が減った場合にも対応できる
     await txn.runAsync('DELETE FROM activity_exercises WHERE activity_id = ?;', [activityId]);
 
@@ -239,7 +240,7 @@ export type TrackPoint = { lat: number; lng: number; recordedAt: string };
 export async function saveTrack(activityId: number, points: TrackPoint[]): Promise<void> {
   if (points.length === 0) return;
   const db = getDatabase();
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await inTransaction(db, async (txn) => {
     await txn.runAsync('DELETE FROM activity_tracks WHERE activity_id = ?;', [activityId]);
     for (const [index, point] of points.entries()) {
       await txn.runAsync(

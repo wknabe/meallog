@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/ui/layout';
 import { useTodayKey } from '@/hooks/use-today';
+import { showAlert } from '@/lib/alert';
 import { savePhoto } from '@/lib/photos';
 import { MEAL_SLOT_LABELS, type MealSlot } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -62,7 +63,7 @@ export default function NewMealScreen() {
           ? await ImagePicker.requestCameraPermissionsAsync()
           : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
+        showAlert(
           source === 'camera' ? 'カメラを使えません' : '写真を読み込めません',
           '端末の設定からアクセスを許可してください。',
         );
@@ -85,7 +86,7 @@ export default function NewMealScreen() {
       router.replace('/meal/edit');
     } catch (error) {
       console.error('写真の取り込みに失敗しました', error);
-      Alert.alert('写真を保存できませんでした', 'もう一度お試しください。');
+      showAlert('写真を保存できませんでした', 'もう一度お試しください。');
     } finally {
       setBusy(false);
     }

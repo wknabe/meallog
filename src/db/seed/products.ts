@@ -8,6 +8,7 @@
  * アプリが立ち上がったあと、裏で少しずつ入れる。
  */
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { inTransaction } from '@/db/transaction';
 
 type ProductSeed = {
   /** バーコード */
@@ -87,7 +88,7 @@ export async function seedProductCatalog(
 
   while (done < total) {
     const chunk = seed.products.slice(done, done + CHUNK_SIZE);
-    await db.withExclusiveTransactionAsync(async (txn) => {
+    await inTransaction(db, async (txn) => {
       for (let offset = 0; offset < chunk.length; offset += BATCH_SIZE) {
         const batch = chunk.slice(offset, offset + BATCH_SIZE);
         const values: (string | number | null)[] = [];
