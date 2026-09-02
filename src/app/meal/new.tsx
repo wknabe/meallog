@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/ui/layout';
 import { useTodayKey } from '@/hooks/use-today';
+import { PHOTOS_AVAILABLE } from '@/lib/photos';
 import { showAlert } from '@/lib/alert';
 import { savePhoto } from '@/lib/photos';
 import { MEAL_SLOT_LABELS, type MealSlot } from '@/lib/types';
@@ -121,7 +122,10 @@ export default function NewMealScreen() {
       <Text style={styles.lead}>{MEAL_SLOT_LABELS[slot]}の記録方法を選択してください</Text>
 
       <View style={styles.list}>
-        {METHODS.map((method) => (
+        {METHODS.filter(
+          // ブラウザ版は写真を保存できないので、撮影と写真選択は出さない
+          (method) => PHOTOS_AVAILABLE || (method.key !== 'camera' && method.key !== 'library'),
+        ).map((method) => (
           <Pressable
             key={method.key}
             onPress={() => handle(method.key)}

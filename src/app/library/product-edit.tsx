@@ -18,7 +18,7 @@ import { createProduct, getProductForEdit, updateProduct } from '@/db/repo/produ
 import { showAlert } from '@/lib/alert';
 import { reportError } from '@/lib/errors';
 import { OCR_AVAILABLE, recognizeNutritionLabel, type LabelBasis } from '@/lib/ocr';
-import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
+import { PHOTOS_AVAILABLE, deletePhoto, photoUri, savePhoto } from '@/lib/photos';
 import { useAppStore } from '@/store/app';
 import { colors, fontSize, radius, spacing } from '@/theme/colors';
 
@@ -220,62 +220,64 @@ export default function ProductEditScreen() {
         ))}
       </View>
 
-      {/* 成分表の写真 */}
-      <Card>
-        <CardTitle>成分表の写真</CardTitle>
-        {uri != null ? (
-          <>
-            <Image source={{ uri }} style={styles.photo} contentFit="contain" />
-            <View style={styles.photoActions}>
+      {/* 成分表の写真。ブラウザ版には保存領域が無いので出さない */}
+      {PHOTOS_AVAILABLE && (
+        <Card>
+          <CardTitle>成分表の写真</CardTitle>
+          {uri != null ? (
+            <>
+              <Image source={{ uri }} style={styles.photo} contentFit="contain" />
+              <View style={styles.photoActions}>
+                <Pressable
+                  onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
+                  style={styles.photoAction}
+                >
+                  <Text style={styles.photoActionText}>撮り直す</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    // 保存するまでファイルは消さない
+                    if (photoPath) setPendingDeletes((previous) => [...previous, photoPath]);
+                    setPhotoPath(null);
+                    setPreviewUri(null);
+                  }}
+                  style={styles.photoAction}
+                >
+                  <Text style={[styles.photoActionText, { color: colors.danger }]}>削除</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <View style={styles.photoButtons}>
               <Pressable
                 onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
-                style={styles.photoAction}
+                style={styles.photoButton}
               >
-                <Text style={styles.photoActionText}>撮り直す</Text>
+                <Ionicons name="camera-outline" size={18} color={colors.primary} />
+                <Text style={styles.photoButtonText}>撮影</Text>
               </Pressable>
               <Pressable
-                onPress={() => {
-                  // 保存するまでファイルは消さない
-                  if (photoPath) setPendingDeletes((previous) => [...previous, photoPath]);
-                  setPhotoPath(null);
-                  setPreviewUri(null);
-                }}
-                style={styles.photoAction}
+                onPress={() => void attachPhoto('library').catch(reportError('写真の取り込み'))}
+                style={styles.photoButton}
               >
-                <Text style={[styles.photoActionText, { color: colors.danger }]}>削除</Text>
+                <Ionicons name="images-outline" size={18} color={colors.primary} />
+                <Text style={styles.photoButtonText}>写真を選ぶ</Text>
               </Pressable>
             </View>
-          </>
-        ) : (
-          <View style={styles.photoButtons}>
-            <Pressable
-              onPress={() => void attachPhoto('camera').catch(reportError('写真の取り込み'))}
-              style={styles.photoButton}
-            >
-              <Ionicons name="camera-outline" size={18} color={colors.primary} />
-              <Text style={styles.photoButtonText}>撮影</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void attachPhoto('library').catch(reportError('写真の取り込み'))}
-              style={styles.photoButton}
-            >
-              <Ionicons name="images-outline" size={18} color={colors.primary} />
-              <Text style={styles.photoButtonText}>写真を選ぶ</Text>
-            </Pressable>
-          </View>
-        )}
-        {previewUri != null && (
-          <Text style={styles.note}>
-            成分表の画像を保存しない設定のため、この画像は入力中だけ表示されます。
-          </Text>
-        )}
-        {!OCR_AVAILABLE && (
-          <Text style={styles.note}>
-            自動での読み取りはまだ対応していません。撮った写真を見ながら値を入力してください。
-            入力した栄養データは、写真の保存期間が過ぎても残ります。
-          </Text>
-        )}
-      </Card>
+          )}
+          {previewUri != null && (
+            <Text style={styles.note}>
+              成分表の画像を保存しない設定のため、この画像は入力中だけ表示されます。
+            </Text>
+          )}
+          {!OCR_AVAILABLE && (
+            <Text style={styles.note}>
+              自動での読み取りはまだ対応していません。撮った写真を見ながら値を入力してください。
+              入力した栄養データは、写真の保存期間が過ぎても残ります。
+            </Text>
+          )}
+        </Card>
+      )}
 
       {/* 商品の情報 */}
       <Card>

@@ -13,7 +13,7 @@ import { createMeal, deleteMeal, updateMeal } from '@/db/repo/meals';
 import { showAlert } from '@/lib/alert';
 import { reportError } from '@/lib/errors';
 import { formatDayLabel, fromDayKey, logicalDate, toDayKey } from '@/lib/day';
-import { deletePhoto, photoUri, savePhoto } from '@/lib/photos';
+import { PHOTOS_AVAILABLE, deletePhoto, photoUri, savePhoto } from '@/lib/photos';
 import { formatGrams } from '@/lib/units';
 import { MEAL_SLOT_LABELS, MEAL_SLOT_ORDER, type MealSlot } from '@/lib/types';
 import { useAppStore } from '@/store/app';
@@ -214,8 +214,8 @@ export default function EditMealScreen() {
         )}
       </Card>
 
-      {/* 写真 */}
-      {uri != null ? (
+      {/* 写真。ブラウザ版には保存領域が無いので出さない */}
+      {!PHOTOS_AVAILABLE ? null : uri != null ? (
         <View>
           <Image source={{ uri }} style={styles.photo} contentFit="cover" />
           <View style={styles.photoActions}>

@@ -24,7 +24,7 @@ import { showAlert } from '@/lib/alert';
 import { exportBackup, importBackup, shareBackup } from '@/lib/backup';
 import { dailyStepsBurn, exerciseBonus } from '@/lib/energy';
 import { HEALTH_SOURCE_NAME } from '@/lib/health';
-import { formatBytes, photoStorageBytes } from '@/lib/photos';
+import { PHOTOS_AVAILABLE, formatBytes, photoStorageBytes } from '@/lib/photos';
 import { addDays, calcAge, formatDayLabel, today } from '@/lib/day';
 import { computeAdjustment, describeAdjustment } from '@/lib/adjustment';
 import { ACTIVITY_LEVELS, calcTargets } from '@/lib/targets';
@@ -579,44 +579,46 @@ export default function SettingsScreen() {
         )}
       </Card>
 
-      {/* ── 写真 ── */}
-      <Card>
-        <CardTitle>写真の保存期間</CardTitle>
-        <Text style={styles.description}>
-          期限を過ぎた画像は自動で削除されますが、記録と栄養データは残ります。
-        </Text>
+      {/* ── 写真。ブラウザ版は写真を扱わないので出さない ── */}
+      {PHOTOS_AVAILABLE && (
+        <Card>
+          <CardTitle>写真の保存期間</CardTitle>
+          <Text style={styles.description}>
+            期限を過ぎた画像は自動で削除されますが、記録と栄養データは残ります。
+          </Text>
 
-        <Field label="食事の写真">
-          <SegmentedControl<number>
-            options={[
-              { value: 90, label: '3ヶ月' },
-              { value: 180, label: '6ヶ月' },
-              { value: 365, label: '1年' },
-              { value: 0, label: '無期限' },
-            ]}
-            value={settings.mealPhotoRetentionDays}
-            onChange={(value) => updateSettings({ mealPhotoRetentionDays: value })}
+          <Field label="食事の写真">
+            <SegmentedControl<number>
+              options={[
+                { value: 90, label: '3ヶ月' },
+                { value: 180, label: '6ヶ月' },
+                { value: 365, label: '1年' },
+                { value: 0, label: '無期限' },
+              ]}
+              value={settings.mealPhotoRetentionDays}
+              onChange={(value) => updateSettings({ mealPhotoRetentionDays: value })}
+            />
+          </Field>
+
+          <Row
+            label="写真が使っている容量"
+            value={photoBytes != null ? formatBytes(photoBytes) : '—'}
           />
-        </Field>
 
-        <Row
-          label="写真が使っている容量"
-          value={photoBytes != null ? formatBytes(photoBytes) : '—'}
-        />
-
-        <Field label="成分表の写真">
-          <SegmentedControl<number>
-            options={[
-              { value: 90, label: '3ヶ月' },
-              { value: 180, label: '6ヶ月' },
-              { value: 365, label: '1年' },
-              { value: -1, label: '保存しない' },
-            ]}
-            value={settings.labelPhotoRetentionDays}
-            onChange={(value) => updateSettings({ labelPhotoRetentionDays: value })}
-          />
-        </Field>
-      </Card>
+          <Field label="成分表の写真">
+            <SegmentedControl<number>
+              options={[
+                { value: 90, label: '3ヶ月' },
+                { value: 180, label: '6ヶ月' },
+                { value: 365, label: '1年' },
+                { value: -1, label: '保存しない' },
+              ]}
+              value={settings.labelPhotoRetentionDays}
+              onChange={(value) => updateSettings({ labelPhotoRetentionDays: value })}
+            />
+          </Field>
+        </Card>
+      )}
 
       {/* ── 食材・商品・料理 ── */}
       <Card>
@@ -653,12 +655,14 @@ export default function SettingsScreen() {
           onPress={() => void runExport(false)}
           disabled={backupBusy}
         />
-        <Button
-          title="書き出す（写真も含む）"
-          variant="secondary"
-          onPress={() => void runExport(true)}
-          disabled={backupBusy}
-        />
+        {PHOTOS_AVAILABLE && (
+          <Button
+            title="書き出す（写真も含む）"
+            variant="secondary"
+            onPress={() => void runExport(true)}
+            disabled={backupBusy}
+          />
+        )}
         <Button
           title="バックアップから復元"
           variant="ghost"

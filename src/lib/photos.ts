@@ -10,6 +10,17 @@
  */
 import { Directory, File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import { Platform } from 'react-native';
+
+/**
+ * 写真を扱えるか。
+ *
+ * ブラウザには端末の保存領域が無く、expo-file-system も動かない。
+ * 写真だけのために別の保存の仕組み（IndexedDB）を持つと、
+ * バックアップや容量表示まで二重に作ることになるため、Webでは写真を扱わない。
+ * 画面側はこの値を見て、撮影・選択のボタンを出さないようにする。
+ */
+export const PHOTOS_AVAILABLE = Platform.OS !== 'web';
 
 export type PhotoKind = 'meal' | 'label';
 
@@ -55,6 +66,9 @@ export async function savePhoto(
   kind: PhotoKind,
   dimensions?: { width: number; height: number },
 ): Promise<string> {
+  if (!PHOTOS_AVAILABLE) {
+    throw new Error('ブラウザ版では写真を保存できません。アプリ版をお使いください。');
+  }
   const spec = SPEC[kind];
   const dir = ensureDirectory(kind);
   const fileName = makeFileName();
@@ -99,6 +113,7 @@ export function deletePhoto(relativePath: string | null | undefined): void {
  * 削除するのは画像ファイルだけで、記録と栄養データは残す。
  */
 export function purgeExpiredPhotos(kind: PhotoKind, retentionDays: number): string[] {
+  if (!PHOTOS_AVAILABLE) return [];
   if (retentionDays === 0) return [];
 
   const dir = directoryFor(kind);
@@ -121,6 +136,7 @@ export function purgeExpiredPhotos(kind: PhotoKind, retentionDays: number): stri
 
 /** 写真が使っている容量（バイト）。設定画面に表示する */
 export function photoStorageBytes(): number {
+  if (!PHOTOS_AVAILABLE) return 0;
   let total = 0;
   for (const kind of ['meal', 'label'] as PhotoKind[]) {
     const dir = directoryFor(kind);

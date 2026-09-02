@@ -8,6 +8,7 @@
  * あとからクラウド同期を足すときもそのまま使えるため。
  */
 import { Directory, File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import JSZip from 'jszip';
 import type { SQLiteDatabase } from 'expo-sqlite';
@@ -91,6 +92,22 @@ function timestamp(): string {
  */
 export async function exportBackup(includePhotos: boolean): Promise<string> {
   const db = getDatabase();
+
+  // Web は端末のファイル置き場を扱えないので、ブラウザのダウンロードとして渡す。
+  // 写真もWebでは持っていないため、記録データだけを書き出す
+  if (Platform.OS === 'web') {
+    const payload: BackupFile = {
+      format: 'meallog-backup',
+      version: BACKUP_VERSION,
+      createdAt: new Date().toISOString(),
+      includesPhotos: false,
+      tables: await dumpTables(db),
+    };
+    downloadInBrowser(`meallog-${timestamp()}.json`, JSON.stringify(payload), 'application/json');
+    // 共有シートに渡す先が無いので、後続の shareBackup は何もしない
+    return '';
+  }
+
   const payload: BackupFile = {
     format: 'meallog-backup',
     version: BACKUP_VERSION,
@@ -128,8 +145,26 @@ export async function exportBackup(includePhotos: boolean): Promise<string> {
   return file.uri;
 }
 
+/**
+ * ブラウザに保存させる。
+ * a要素のダウンロード属性を使うのが、追加の仕組みを持たずに済む唯一の方法。
+ */
+function downloadInBrowser(name: string, body: string, mimeType: string): void {
+  const url = URL.createObjectURL(new Blob([body], { type: mimeType }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // すぐ消すとダウンロードが始まらない端末があるため、少し置いてから解放する
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 /** 書き出したファイルを共有シートで渡す */
 export async function shareBackup(uri: string): Promise<void> {
+  // Web は書き出しの時点でダウンロード済み
+  if (Platform.OS === 'web' || uri === '') return;
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error('この端末では共有機能を使えません');
   }
@@ -157,12 +192,28 @@ function parseBackup(text: string): BackupFile {
  */
 export async function importBackup(uri: string): Promise<{ restored: number; photos: number }> {
   const db = getDatabase();
-  const source = new File(uri);
+  const isWeb = Platform.OS === 'web';
+  // Web で選んだファイルは blob: の URL になる。fetch で中身を読める
+  const source = isWeb ? null : new File(uri);
+  const readText = async (): Promise<string> =>
+    source ? await source.text() : await (await fetch(uri)).text();
+  const readBase64 = async (): Promise<string> => {
+    if (source) return await source.base64();
+    const buffer = await (await fetch(uri)).arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary);
+  };
+
   let payload: BackupFile;
   let photoEntries: { path: string; base64: string }[] = [];
 
-  if (uri.endsWith('.zip')) {
-    const zip = await JSZip.loadAsync(await source.base64(), { base64: true });
+  // Web は拡張子が分からないことがあるので、中身がZIPかどうかで判断する
+  const looksZip = uri.endsWith('.zip') || (isWeb && (await isZip(uri)));
+
+  if (looksZip) {
+    const zip = await JSZip.loadAsync(await readBase64(), { base64: true });
     const jsonFile = zip.file('backup.json');
     if (!jsonFile) throw new Error('バックアップの中身が見つかりません');
     payload = parseBackup(await jsonFile.async('string'));
@@ -172,7 +223,7 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
       photoEntries.push({ path, base64: await entry.async('base64') });
     }
   } else {
-    payload = parseBackup(await source.text());
+    payload = parseBackup(await readText());
   }
 
   let restored = 0;
@@ -201,8 +252,9 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
     }
   });
 
-  // 写真を戻す
+  // 写真を戻す。Web には置き場が無いので入れない
   let photos = 0;
+  if (Platform.OS === 'web') photoEntries = [];
   for (const entry of photoEntries) {
     const segments = entry.path.split('/');
     const kind = segments[1];
@@ -220,6 +272,16 @@ export async function importBackup(uri: string): Promise<{ restored: number; pho
 }
 
 /** 端末内に置いてある自動バックアップの一覧（新しい順） */
+/** 先頭のバイト列でZIPかどうかを見る */
+async function isZip(uri: string): Promise<boolean> {
+  try {
+    const head = new Uint8Array(await (await fetch(uri)).arrayBuffer()).slice(0, 2);
+    return head[0] === 0x50 && head[1] === 0x4b; // 'PK'
+  } catch {
+    return false;
+  }
+}
+
 export function listLocalBackups(): { name: string; uri: string; size: number }[] {
   const dir = backupDirectory();
   const files: { name: string; uri: string; size: number }[] = [];
@@ -239,6 +301,8 @@ const AUTO_BACKUP_INTERVAL_DAYS = 7;
  * アプリの不具合でデータが壊れた場合の復旧用で、端末ごと失うケースには手動書き出しが必要。
  */
 export async function runAutoBackup(lastRunAt: string | null): Promise<string | null> {
+  // Web は端末内にファイルを置けないので、自動バックアップは行わない
+  if (Platform.OS === 'web') return null;
   if (lastRunAt != null) {
     const elapsed = Date.now() - new Date(lastRunAt).getTime();
     if (elapsed < AUTO_BACKUP_INTERVAL_DAYS * 24 * 60 * 60 * 1000) return null;
